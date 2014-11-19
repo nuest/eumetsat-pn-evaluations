@@ -5,14 +5,19 @@
  */
 package eumetsat.pn.common;
 
-import eumetsat.pn.common.util.FileSystem;
 import eumetsat.pn.common.util.JSONPrettyWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.Writer;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.Collection;
 import java.util.HashMap;
+import java.util.logging.Level;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
@@ -22,7 +27,6 @@ import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
-import org.apache.commons.io.filefilter.SuffixFileFilter;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.ImmutableSettings;
@@ -31,15 +35,22 @@ import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;
 import org.xml.sax.SAXException;
 
 /**
  *
- * @author Guilaume Aubert
+ * @author Guilaume Aubert, Daniel Nüst
  */
 public class ISO2JSON {
+
+    private static final Logger log = LoggerFactory.getLogger(ISO2JSON.class);
+
+    private Writer writer = new JSONPrettyWriter();
 
     /**
      * Parse the hierarchy name to tentatively form facets
@@ -47,7 +58,7 @@ public class ISO2JSON {
      * @param hierarchyNames
      */
     @SuppressWarnings("unchecked")
-    public static JSONObject parseThemeHierarchy(String fid, JSONArray hierarchyNames) {
+    public JSONObject parseThemeHierarchy(String fid, JSONArray hierarchyNames) {
         String dummy = null;
         JSONObject jsonObject = new JSONObject();
 
@@ -56,8 +67,7 @@ public class ISO2JSON {
 
             String[] elems = dummy.split("\\.");
 
-            System.out.println("Analyze " + dummy);
-
+//            System.out.println("Analyze " + dummy);
             if (elems[0].equalsIgnoreCase("sat")) {
                 if (elems[1].equalsIgnoreCase("METOP")) {
                     jsonObject.put("satellite", "METOP");
@@ -132,282 +142,262 @@ public class ISO2JSON {
     }
 
     @SuppressWarnings("unchecked")
-    public static void createInfoToIndex(String aSourceDirPath, String aDestDirPath) {
+    public void createInfoToIndex(Path aSourceDirPath, Path aDestDirPath) {
+        log.info("Transforming XML in {} to JSON in {}", aSourceDirPath, aDestDirPath);
 
+        DocumentBuilder builder = null;
         try {
-            String expression = null;
-            String result = null;
-            FileInputStream fileInput = null;
+            DocumentBuilderFactory builderFactory = DocumentBuilderFactory
+                    .newInstance();
+            builder = builderFactory.newDocumentBuilder();
+        } catch (ParserConfigurationException e) {
+            log.error("Error transforming directory", e);
+            return;
+        }
 
-            for (File file : FileSystem.listDirectory(aSourceDirPath)) {
-
-                // FileInputStream file = new FileInputStream(new
-                // File("./etc/metadata/EO-EUM-DAT-METOP-AMSU-AHRPT.xml"));
-                fileInput = new FileInputStream(file);
-
-                DocumentBuilderFactory builderFactory = DocumentBuilderFactory
-                        .newInstance();
-
-                DocumentBuilder builder = builderFactory.newDocumentBuilder();
-
+        Collection<File> inputFiles = FileUtils.listFiles(aSourceDirPath.toFile(), null, false);
+        int counter = 0;
+        for (File file : inputFiles) {
+            try {
+                FileInputStream fileInput = new FileInputStream(file);
                 Document xmlDocument = builder.parse(fileInput);
 
-                XPath xPath = XPathFactory.newInstance().newXPath();
+                JSONObject json = convert(xmlDocument);
 
-                String xpathFileID = "//*[local-name()='fileIdentifier']/*[local-name()='CharacterString']";
-
-                JSONObject jsonObject = new JSONObject();
-
-                // Get fileIDs
-                System.out.println("*************************");
-                // String expression = "/Employees/Employee[@emplid='3333']/email";
-                System.out.println(xpathFileID);
-                String fileID = xPath.compile(xpathFileID).evaluate(xmlDocument);
-                System.out.println("result=" + fileID);
-
-                if (fileID != null) {
-                    jsonObject.put("fileIdentifier", fileID);
-                }
-
-                // Get hierarchyLevelNames
-                System.out.println("*************************");
-                expression = "//*[local-name()='hierarchyLevelName']/*[local-name()='CharacterString']";
-                System.out.println(expression);
-                JSONArray list = new JSONArray();
-                NodeList nodeList = (NodeList) xPath.compile(expression).evaluate(
-                        xmlDocument, XPathConstants.NODESET);
-                for (int i = 0; i < nodeList.getLength(); i++) {
-                    list.add(nodeList.item(i).getFirstChild().getNodeValue());
-                    System.out.println(nodeList.item(i).getFirstChild().getNodeValue());
-                }
-
-                if (list.size() > 0) {
-                    JSONObject hierarchies = parseThemeHierarchy((String) jsonObject.get("fileIdentifier"), list);
-                    Writer writer = new JSONPrettyWriter(); // this is the new writter that
-                    // adds indentation.
-                    hierarchies.writeJSONString(writer);
-                    System.out.println("JSON Result hierarchies: " + writer.toString());
-
-                    jsonObject.put("hierarchyNames", hierarchies);
-                }
-
-                // Get Contact info
-                String deliveryPoint = "//*[local-name()='address']//*[local-name()='deliveryPoint']/*[local-name()='CharacterString']";
-                String city = "//*[local-name()='address']//*[local-name()='city']/*[local-name()='CharacterString']";
-                String administrativeArea = "//*[local-name()='address']//*[local-name()='administrativeArea']/*[local-name()='CharacterString']";
-                String postalCode = "//*[local-name()='address']//*[local-name()='postalCode']/*[local-name()='CharacterString']";
-                String country = "//*[local-name()='address']//*[local-name()='country']/*[local-name()='CharacterString']";
-                String email = "//*[local-name()='address']//*[local-name()='electronicMailAddress']/*[local-name()='CharacterString']";
-
-                String addressString = "";
-                String emailString = "";
-
-                result = xPath.compile(deliveryPoint).evaluate(xmlDocument);
-
-                if (result != null) {
-                    addressString += result.trim();
-                }
-
-                result = xPath.compile(postalCode).evaluate(xmlDocument);
-
-                if (result != null) {
-                    addressString += "\n" + result.trim();
-                }
-
-                result = xPath.compile(city).evaluate(xmlDocument);
-
-                if (result != null) {
-                    addressString += " " + result.trim();
-                }
-                result = xPath.compile(administrativeArea).evaluate(xmlDocument);
-
-                if (result != null) {
-                    addressString += "\n" + result.trim();
-                }
-
-                result = xPath.compile(country).evaluate(xmlDocument);
-
-                if (result != null) {
-                    addressString += "\n" + result.trim();
-                }
-
-                System.out.println("address =" + addressString);
-
-                result = xPath.compile(email).evaluate(xmlDocument);
-
-                if (result != null) {
-                    emailString += result.trim();
-                }
-
-                System.out.println("email =" + emailString);
-                HashMap<String, String> map = new HashMap<String, String>();
-                map.put("address", addressString);
-                map.put("email", emailString);
-
-                jsonObject.put("contact", map);
-
-                // add identification info
-                String abstractStr = "//*[local-name()='identificationInfo']//*[local-name()='abstract']/*[local-name()='CharacterString']";
-                String titleStr = "//*[local-name()='identificationInfo']//*[local-name()='title']/*[local-name()='CharacterString']";
-                String statusStr = "//*[local-name()='identificationInfo']//*[local-name()='status']/*[local-name()='MD_ProgressCode']/@codeListValue";
-                String keywords = "//*[local-name()='keyword']/*[local-name()='CharacterString']";
-
-                HashMap<String, Object> idMap = new HashMap<String, Object>();
-
-                result = xPath.compile(titleStr).evaluate(xmlDocument);
-
-                if (result != null) {
-                    idMap.put("title", result.trim());
-                }
-
-                result = xPath.compile(abstractStr).evaluate(xmlDocument);
-
-                if (result != null) {
-                    idMap.put("abstract", result.trim());
-                }
-
-                result = xPath.compile(statusStr).evaluate(xmlDocument);
-
-                if (result != null) {
-                    idMap.put("status", result.trim());
-                }
-
-                list = new JSONArray();
-                nodeList = (NodeList) xPath.compile(keywords).evaluate(xmlDocument,
-                        XPathConstants.NODESET);
-                for (int i = 0; i < nodeList.getLength(); i++) {
-                    list.add(nodeList.item(i).getFirstChild().getNodeValue());
-                    System.out.println(nodeList.item(i).getFirstChild()
-                            .getNodeValue());
-                }
-
-                if (list.size() > 0) {
-                    idMap.put("keywords", list);
-                }
-
-                System.out.println("idMap =" + idMap);
-
-                jsonObject.put("identificationInfo", idMap);
-
-                // get thumbnail product
-                String browseThumbnailStr = "//*[local-name()='graphicOverview']//*[local-name()='MD_BrowseGraphic']//*[local-name()='fileName']//*[local-name()='CharacterString']";
-
-                result = xPath.compile(browseThumbnailStr).evaluate(xmlDocument);
-
-                if (result != null) {
-                    idMap.put("thumbnail", result.trim());
-                }
-
-                // add Geo spatial information
-                String westBLonStr = "//*[local-name()='extent']//*[local-name()='geographicElement']//*[local-name()='westBoundLongitude']/*[local-name()='Decimal']";
-                String eastBLonStr = "//*[local-name()='extent']//*[local-name()='geographicElement']//*[local-name()='eastBoundLongitude']/*[local-name()='Decimal']";
-                String northBLatStr = "//*[local-name()='extent']//*[local-name()='geographicElement']//*[local-name()='northBoundLatitude']/*[local-name()='Decimal']";
-                String southBLatStr = "//*[local-name()='extent']//*[local-name()='geographicElement']//*[local-name()='southBoundLatitude']/*[local-name()='Decimal']";
-
-                // create a GeoJSON envelope object
-                HashMap<String, Object> latlonMap = new HashMap<String, Object>();
-                latlonMap.put("type", "envelope");
-
-                JSONArray envelope = new JSONArray();
-                JSONArray leftTopPt = new JSONArray();
-                JSONArray rightDownPt = new JSONArray();
-
-                result = xPath.compile(westBLonStr).evaluate(xmlDocument);
-                if (result != null) {
-                    leftTopPt.add(Double.parseDouble(result.trim()));
-                }
-
-                result = xPath.compile(northBLatStr).evaluate(xmlDocument);
-                if (result != null) {
-                    leftTopPt.add(Double.parseDouble(result.trim()));
-                }
-
-                result = xPath.compile(eastBLonStr).evaluate(xmlDocument);
-                if (result != null) {
-                    rightDownPt.add(Double.parseDouble(result.trim()));
-                }
-
-                result = xPath.compile(southBLatStr).evaluate(xmlDocument);
-                if (result != null) {
-                    rightDownPt.add(Double.parseDouble(result.trim()));
-                }
-
-                envelope.add(leftTopPt);
-                envelope.add(rightDownPt);
-
-                latlonMap.put("coordinates", envelope);
-                jsonObject.put("location", latlonMap);
-
-                Writer writer = new JSONPrettyWriter();
-                jsonObject.writeJSONString(writer);
-
-                System.out.println("JSON Result Object: " + writer.toString());
+                json.writeJSONString(writer);
+                log.debug("JSON Result Object: {}", writer.toString());
 
                 String fName = aDestDirPath + "/" + FilenameUtils.getBaseName(file.getName()) + ".json";
 
-                System.out.println("Write result in " + fName);
-
-                FileUtils.writeStringToFile(new File(fName), jsonObject.toJSONString());
-
+                FileUtils.writeStringToFile(new File(fName), json.toJSONString());
+                log.info("Wrote metadata with id {} (file {}) as json to {} ", json.get("fileIdentifier"), file, fName);
+                counter++;
+            } catch (SAXException | IOException | XPathExpressionException e) {
+                log.error("Error transforming file {}", file, e);
             }
-
-            System.out.println("*************************");
-
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (SAXException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        } catch (ParserConfigurationException e) {
-            e.printStackTrace();
-        } catch (XPathExpressionException e) {
-            e.printStackTrace();
         }
+
+        log.info("Transformed {} of {} files", counter, inputFiles.size());
     }
 
-    public static void indexDirContent(String aSrcDir) {
+    public void indexDirContent(Path aSrcDir) {
+        log.info("Indexing dir content {}", aSrcDir);
+
         String jsonStr = null;
         JSONParser parser = new JSONParser();
         JSONObject jsObj = null;
 
         Settings settings = ImmutableSettings.settingsBuilder().put("cluster.name", "elasticsearch").build();
-        TransportClient client = new TransportClient(settings);
-        client.addTransportAddress(new InetSocketTransportAddress("localhost", 9300));
 
-        try {
+        try (TransportClient client = new TransportClient(settings);) {
+            client.addTransportAddress(new InetSocketTransportAddress("localhost", 9300));
 
             int cpt = 0;
-            for (File file : FileSystem.listDirectory(aSrcDir, new SuffixFileFilter(".json"))) {
-                jsonStr = FileUtils.readFileToString(file);
-                jsObj = (JSONObject) parser.parse(jsonStr);
+            Collection<File> inputFiles = FileUtils.listFiles(aSrcDir.toFile(), new String[]{"json"}, false);
+            for (File file : inputFiles) {
 
-                IndexResponse response = client.prepareIndex("eumetsat-catalogue", "product", (String) jsObj.get("fileIdentifier"))
-                        .setSource(jsObj.toJSONString())
-                        .execute()
-                        .actionGet();
+                try {
+                    jsonStr = FileUtils.readFileToString(file);
+                    jsObj = (JSONObject) parser.parse(jsonStr);
 
-                cpt++;
+                    String index = "eumetsat-catalogue";
+                    String type = "product";
+                    String id = (String) jsObj.get("fileIdentifier");
+                    log.debug("Adding {} (type: {}) to {}", id, type, index);
+                    IndexResponse response = client.prepareIndex(index, type, id)
+                            .setSource(jsObj.toJSONString())
+                            .execute()
+                            .actionGet();
 
-                System.out.println("response = " + response.getId() + " [] version = " + response.getVersion());
+                    cpt++;
+
+                    log.debug("Response: {} | version: {}", response.getId(), response.getVersion());
+                } catch (IOException | ParseException e) {
+                    log.error("Error with json file ", file, e);
+                }
             }
 
-            System.out.println("Indexed " + cpt + " files.");
-
-        } catch (Exception e) {
-            e.printStackTrace();
+            log.info("Indexed {} of {} files.", cpt, inputFiles.size());
+        } catch (RuntimeException e) {
+            log.error("Error indexing json files.", e);
         }
-
-        // on shutdown
-        client.close();
     }
 
-    public static void main(String[] args) {
-        String srcDir = "etc/metadata";
-        String destDir = "/tmp/json-results";
+    public static void main(String[] args) throws IOException {
+        ISO2JSON transformer = new ISO2JSON();
 
-        createInfoToIndex(srcDir, destDir);
+        Path srcDir = Paths.get("C:\\Users\\danu\\Documents\\2014_EUMETSAT\\metadata");
 
-        indexDirContent(destDir);
+        Path destDir = Files.createTempDirectory("eumetsat-pn-json-results_");
+
+        transformer.createInfoToIndex(srcDir, destDir);
+
+        transformer.indexDirContent(destDir);
+    }
+
+    private void appendIfResultNotNull(XPath xpath, Document xml, StringBuilder sb, String expression) throws XPathExpressionException {
+        String result = xpath.compile(expression).evaluate(xml);
+        if (result != null) {
+            sb.append(result.trim());
+        }
+    }
+
+    private JSONObject convert(Document xmlDocument) throws XPathExpressionException, IOException {
+        String expression = null;
+        String result = null;
+        XPath xPath = XPathFactory.newInstance().newXPath();
+        JSONObject jsonObject = new JSONObject();
+
+        String xpathFileID = "//*[local-name()='fileIdentifier']/*[local-name()='CharacterString']";
+        String fileID = xPath.compile(xpathFileID).evaluate(xmlDocument);
+        log.debug(" >>> ", xpathFileID, fileID);
+        if (fileID != null) {
+            jsonObject.put("fileIdentifier", fileID);
+        }
+
+        expression = "//*[local-name()='hierarchyLevelName']/*[local-name()='CharacterString']";
+        JSONArray list = new JSONArray();
+        NodeList nodeList = (NodeList) xPath.compile(expression).evaluate(
+                xmlDocument, XPathConstants.NODESET);
+        for (int i = 0; i < nodeList.getLength(); i++) {
+            list.add(nodeList.item(i).getFirstChild().getNodeValue());
+        }
+        if (list.size() > 0) {
+            JSONObject hierarchies = parseThemeHierarchy((String) jsonObject.get("fileIdentifier"), list);
+            hierarchies.writeJSONString(writer);
+            jsonObject.put("hierarchyNames", hierarchies);
+            log.debug(" >>> ", expression, jsonObject.get("hierarchyNames"));
+        }
+
+        // Get Contact info
+        String deliveryPoint = "//*[local-name()='address']//*[local-name()='deliveryPoint']/*[local-name()='CharacterString']";
+        String city = "//*[local-name()='address']//*[local-name()='city']/*[local-name()='CharacterString']";
+        String administrativeArea = "//*[local-name()='address']//*[local-name()='administrativeArea']/*[local-name()='CharacterString']";
+        String postalCode = "//*[local-name()='address']//*[local-name()='postalCode']/*[local-name()='CharacterString']";
+        String country = "//*[local-name()='address']//*[local-name()='country']/*[local-name()='CharacterString']";
+        String email = "//*[local-name()='address']//*[local-name()='electronicMailAddress']/*[local-name()='CharacterString']";
+
+        StringBuilder addressString = new StringBuilder();
+        StringBuilder emailString = new StringBuilder();
+
+        appendIfResultNotNull(xPath, xmlDocument, addressString, deliveryPoint);
+
+        result = xPath.compile(postalCode).evaluate(xmlDocument);
+        if (result != null) {
+            addressString.append("\n").append(result.trim());
+        }
+
+        result = xPath.compile(city).evaluate(xmlDocument);
+        if (result != null) {
+            addressString.append(" ").append(result.trim());
+        }
+
+        result = xPath.compile(administrativeArea).evaluate(xmlDocument);
+        if (result != null) {
+            addressString.append("\n").append(result.trim());
+        }
+
+        result = xPath.compile(country).evaluate(xmlDocument);
+        if (result != null) {
+            addressString.append("\n").append(result.trim());
+        }
+
+        result = xPath.compile(email).evaluate(xmlDocument);
+        if (result != null) {
+            emailString.append(result.trim());
+        }
+
+        HashMap<String, String> map = new HashMap<>();
+        map.put("address", addressString.toString());
+        map.put("email", emailString.toString());
+        jsonObject.put("contact", map);
+        log.debug("contact: {}", Arrays.toString(map.entrySet().toArray()));
+
+        // add identification info
+        String abstractStr = "//*[local-name()='identificationInfo']//*[local-name()='abstract']/*[local-name()='CharacterString']";
+        String titleStr = "//*[local-name()='identificationInfo']//*[local-name()='title']/*[local-name()='CharacterString']";
+        String statusStr = "//*[local-name()='identificationInfo']//*[local-name()='status']/*[local-name()='MD_ProgressCode']/@codeListValue";
+        String keywords = "//*[local-name()='keyword']/*[local-name()='CharacterString']";
+
+        HashMap<String, Object> idMap = new HashMap<>();
+
+        result = xPath.compile(titleStr).evaluate(xmlDocument);
+        if (result != null) {
+            idMap.put("title", result.trim());
+        }
+
+        result = xPath.compile(abstractStr).evaluate(xmlDocument);
+        if (result != null) {
+            idMap.put("abstract", result.trim());
+        }
+
+        result = xPath.compile(statusStr).evaluate(xmlDocument);
+        if (result != null) {
+            idMap.put("status", result.trim());
+        }
+
+        list = new JSONArray();
+        nodeList = (NodeList) xPath.compile(keywords).evaluate(xmlDocument,
+                XPathConstants.NODESET);
+        for (int i = 0; i < nodeList.getLength(); i++) {
+            list.add(nodeList.item(i).getFirstChild().getNodeValue());
+        }
+
+        if (list.size() > 0) {
+            idMap.put("keywords", list);
+        }
+
+        jsonObject.put("identificationInfo", idMap);
+        log.debug("idMap: {}", idMap);
+
+        // get thumbnail product
+        String browseThumbnailStr = "//*[local-name()='graphicOverview']//*[local-name()='MD_BrowseGraphic']//*[local-name()='fileName']//*[local-name()='CharacterString']";
+        result = xPath.compile(browseThumbnailStr).evaluate(xmlDocument);
+        if (result != null) {
+            idMap.put("thumbnail", result.trim());
+            log.debug("thumbnail: {}", result);
+        }
+
+        // add Geo spatial information
+        String westBLonStr = "//*[local-name()='extent']//*[local-name()='geographicElement']//*[local-name()='westBoundLongitude']/*[local-name()='Decimal']";
+        String eastBLonStr = "//*[local-name()='extent']//*[local-name()='geographicElement']//*[local-name()='eastBoundLongitude']/*[local-name()='Decimal']";
+        String northBLatStr = "//*[local-name()='extent']//*[local-name()='geographicElement']//*[local-name()='northBoundLatitude']/*[local-name()='Decimal']";
+        String southBLatStr = "//*[local-name()='extent']//*[local-name()='geographicElement']//*[local-name()='southBoundLatitude']/*[local-name()='Decimal']";
+
+        // create a GeoJSON envelope object
+        HashMap<String, Object> latlonMap = new HashMap<>();
+        latlonMap.put("type", "envelope");
+
+        JSONArray envelope = new JSONArray();
+        JSONArray leftTopPt = new JSONArray();
+        JSONArray rightDownPt = new JSONArray();
+
+        result = xPath.compile(westBLonStr).evaluate(xmlDocument);
+        if (result != null) {
+            leftTopPt.add(Double.parseDouble(result.trim()));
+        }
+
+        result = xPath.compile(northBLatStr).evaluate(xmlDocument);
+        if (result != null) {
+            leftTopPt.add(Double.parseDouble(result.trim()));
+        }
+
+        result = xPath.compile(eastBLonStr).evaluate(xmlDocument);
+        if (result != null) {
+            rightDownPt.add(Double.parseDouble(result.trim()));
+        }
+
+        result = xPath.compile(southBLatStr).evaluate(xmlDocument);
+        if (result != null) {
+            rightDownPt.add(Double.parseDouble(result.trim()));
+        }
+
+        envelope.add(leftTopPt);
+        envelope.add(rightDownPt);
+
+        latlonMap.put("coordinates", envelope);
+        jsonObject.put("location", latlonMap);
+
+        return jsonObject;
     }
 }
