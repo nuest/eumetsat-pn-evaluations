@@ -10,3 +10,14 @@
 
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
+/apps/target/
+/target/
+/api/target/
+/api/common/target/
+/apps/solr-webapp/target/
+/api/elasticsearch-api/target/
+/api/solr-api/target/
+/apps/elasticsearch-webapp/target/
+/apps/common-files/target/
+/apps/elasticsearch-webapp/logs
+nb-configuration.xml
