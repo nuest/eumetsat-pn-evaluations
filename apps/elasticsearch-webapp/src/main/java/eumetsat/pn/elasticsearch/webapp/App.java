@@ -342,6 +342,13 @@ public class App {
         app.run();
     }
 
+    public Map<String, Object> addGlobalAttributes(Map<String, Object> attributes) {
+        attributes.put("search_endpoint", SEARCH_RESULTS_ROUTE);
+        attributes.put("engine", engine);
+        attributes.put("elem_per_page", ELEM_PER_PAGE);
+        return attributes;
+    }
+
     private void run() {
         Spark.staticFileLocation("public");
         Spark.setPort(this.port);
@@ -353,34 +360,36 @@ public class App {
 
                 setConfiguration(cfg);
 
+                ModelAndView mav = null;
+                Map<String, Object> attributes = new HashMap<>();
+                addGlobalAttributes(attributes);
+
                 try {
-                    Map<String, Object> attributes = new HashMap<>();
-                    attributes.put("elem_per_page", ELEM_PER_PAGE);
-                    attributes.put("search_endpoint", SEARCH_RESULTS_ROUTE);
-                    attributes.put("engine", engine);
-
-                    ModelAndView mav = new ModelAndView(attributes, "/templates/search_page.ftl");
-
-                    return mav;
+                    mav = new ModelAndView(attributes, "/templates/search_page.ftl");
                 } catch (RuntimeException e) {
                     log.error("Error serving request", e);
                     StringWriter errors = new StringWriter();
                     e.printStackTrace(new PrintWriter(errors));
                     String str = errors.toString();
                     halt(401, "Error while accessing page search_page. error = " + str);
-                    return null;
                 }
+
+                return mav;
             }
         });
 
-        /**
-         * show search results and paginate them
-         */
-        Spark.get(new Route(SEARCH_RESULTS_ROUTE) {
+        Spark.get(new FreeMarkerRoute(SEARCH_RESULTS_ROUTE) {
             @Override
             public Object handle(Request request, Response response) {
+                log.trace("Handle search request: {}", request.raw().getRequestURL());
+
+                setConfiguration(cfg);
+                ModelAndView mav = null;
+
+                Map<String, Object> attributes = new HashMap<>();
+                attributes = addGlobalAttributes(attributes);
+
                 try {
-                    System.out.println("Request url " + request.raw().getRequestURL().toString());
                     String searchTerms = request.queryParams("search-terms");
                     String filterTerms = request.queryParams("filter-terms");
 
@@ -407,67 +416,45 @@ public class App {
                     System.out.println("From " + from);
                     System.out.println("Size " + size);
 
-                    // Load template from source foldqueryRestElasticSearcher
-                    Template template = cfg.getTemplate("/templates/search_results.ftl");
+                    Map<String, Object> data = searchQueryElasticSearch(searchTerms, filterTerms, from, size);
+                    attributes.putAll(data);
 
-                    Map<?, ?> data = searchQueryElasticSearch(searchTerms, filterTerms, from, size);
-
-                    // output html to Console
-                    //Writer out = new OutputStreamWriter(System.out);
-                    //template.process(data, out);
-                    //out.flush();
-                    // get in a String
-                    StringWriter results = new StringWriter();
-                    template.process(data, results);
-                    results.flush();
-
-                    return results.toString();
-
-                } catch (RuntimeException | IOException | TemplateException e) {
+                    mav = new ModelAndView(attributes, "/templates/search_results.ftl");
+                } catch (RuntimeException e) {
                     log.error("Error handling search/results", e);
                     StringWriter errors = new StringWriter();
                     e.printStackTrace(new PrintWriter(errors));
                     String str = errors.toString();
-                    // print in out
-                    System.out.println(str);
                     halt(401, "Error while returning responses: \n\n" + str);
                 }
 
-                return null;
+                return mav;
             }
         });
 
         /**
          * add product page detail
          */
-        Spark.get(new Route("/product_description") {
+        Spark.get(new FreeMarkerRoute("/product_description") {
             @Override
             public Object handle(Request request, Response response) {
-                log.trace("Handle product description request...");
-
-                System.out.println("Request url " + request.raw().getRequestURL().toString());
+                log.trace("Handle product description request: ", request.raw().getRequestURL().toString());
                 String id = request.queryParams("id");
 
-                // Load template from source foldqueryRestElasticSearcher
+                setConfiguration(cfg);
+                ModelAndView mav = null;
+                Map<String, Object> attributes = new HashMap<>();
+                attributes = addGlobalAttributes(attributes);
+
                 try {
-                    Template template = cfg.getTemplate("/templates/product_description.ftl");
 
                     //get product description info and return them as the input for the template
                     Map<String, Object> data = getProductDescriptionFromElSearch(id);
+                    attributes.putAll(data);
 
-                    // Console output
-                    Writer out = new OutputStreamWriter(System.out);
-                    template.process(data, out);
-                    out.flush();
-
-                    // get in a String
-                    StringWriter results = new StringWriter();
-                    template.process(data, results);
-                    results.flush();
-
-                    return results.toString();
-
+                    mav = new ModelAndView(attributes, "/templates/product_description.ftl");
                 } catch (Exception e) {
+                    // TODO return error view
                     StringWriter errors = new StringWriter();
                     e.printStackTrace(new PrintWriter(errors));
                     String str = errors.toString();
@@ -476,7 +463,7 @@ public class App {
                     halt(401, "Error while returning responses. error = " + str);
                 }
 
-                return null;
+                return mav;
             }
         });
 
