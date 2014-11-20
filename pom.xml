@@ -26,6 +26,7 @@
     <properties>
         <endorsed.dir>${project.build.directory}/endorsed</endorsed.dir>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <log4j2.version>2.1</log4j2.version>
     </properties>
     
     <modules>
@@ -63,7 +64,7 @@
             <dependency>
                 <groupId>org.apache.logging.log4j</groupId>
                 <artifactId>log4j-core</artifactId>
-                <version>2.1</version>
+                <version>${log4j2.version}</version>
             </dependency>
             <dependency>
                 <groupId>org.slf4j</groupId>
@@ -85,6 +86,11 @@
                 <artifactId>spark-template-freemarker</artifactId>
                 <!--<version>2.0.0</version>-->
                 <version>1.0</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.autermann</groupId>
+                <artifactId>yaml</artifactId>
+                <version>1.0.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

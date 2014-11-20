@@ -5,12 +5,18 @@
  */
 package eumetsat.pn.common;
 
+import com.github.autermann.yaml.Yaml;
+import com.github.autermann.yaml.YamlNode;
+import com.github.autermann.yaml.YamlNodeFactory;
 import eumetsat.pn.common.util.JSONPrettyWriter;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.Writer;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -27,6 +33,7 @@ import javax.xml.xpath.XPathExpressionException;
 import javax.xml.xpath.XPathFactory;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
+import org.apache.logging.log4j.core.config.Configurator;
 import org.elasticsearch.action.index.IndexResponse;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.ImmutableSettings;
@@ -50,7 +57,28 @@ public class ISO2JSON {
 
     private static final Logger log = LoggerFactory.getLogger(ISO2JSON.class);
 
+    private static final String DEFAULT_CONFIG_FILE = "/feederconfig.yml";
+
+    private static final String FILE_IDENTIFIER_PROPERTY = "fileIdentifier";
+
     private Writer writer = new JSONPrettyWriter();
+
+    private YamlNode config = YamlNodeFactory.createDefault().nullNode();
+
+    public ISO2JSON() {
+        this(DEFAULT_CONFIG_FILE);
+    }
+
+    public ISO2JSON(String configFile) {
+        try (InputStream fis = ISO2JSON.class.getResourceAsStream(configFile)) {
+            YamlNode n = new Yaml().load(fis);
+            this.config = n.get("elasticsearch").get("feeder");
+        } catch (IOException e) {
+            log.error("Could not load config from file {}", configFile, e);
+        }
+
+        log.debug("NEW {} based on {}", this, configFile);
+    }
 
     /**
      * Parse the hierarchy name to tentatively form facets
@@ -58,7 +86,7 @@ public class ISO2JSON {
      * @param hierarchyNames
      */
     @SuppressWarnings("unchecked")
-    public JSONObject parseThemeHierarchy(String fid, JSONArray hierarchyNames) {
+    private JSONObject parseThemeHierarchy(String fid, JSONArray hierarchyNames) {
         String dummy = null;
         JSONObject jsonObject = new JSONObject();
 
@@ -67,7 +95,7 @@ public class ISO2JSON {
 
             String[] elems = dummy.split("\\.");
 
-//            System.out.println("Analyze " + dummy);
+//           log.trace("Analyze " + dummy);
             if (elems[0].equalsIgnoreCase("sat")) {
                 if (elems[1].equalsIgnoreCase("METOP")) {
                     jsonObject.put("satellite", "METOP");
@@ -120,7 +148,7 @@ public class ISO2JSON {
                     }
 
                 } else {
-                    System.out.println("***  ALERT ALERT. DIS is different: " + hName);
+                    log.debug("***  ALERT ALERT. DIS is different: " + hName);
                 }
             } else if (elems[0].equalsIgnoreCase("SBA")) {
                 if (elems.length == 2) {
@@ -133,7 +161,7 @@ public class ISO2JSON {
                     }
 
                 } else {
-                    System.out.println("***  ALERT ALERT. SBA is different: " + hName);
+                    log.debug("***  ALERT ALERT. SBA is different: " + hName);
                 }
             }
         }
@@ -142,7 +170,7 @@ public class ISO2JSON {
     }
 
     @SuppressWarnings("unchecked")
-    public void createInfoToIndex(Path aSourceDirPath, Path aDestDirPath) {
+    private void createInfoToIndex(Path aSourceDirPath, Path aDestDirPath) {
         log.info("Transforming XML in {} to JSON in {}", aSourceDirPath, aDestDirPath);
 
         DocumentBuilder builder = null;
@@ -170,7 +198,7 @@ public class ISO2JSON {
                 String fName = aDestDirPath + "/" + FilenameUtils.getBaseName(file.getName()) + ".json";
 
                 FileUtils.writeStringToFile(new File(fName), json.toJSONString());
-                log.info("Wrote metadata with id {} (file {}) as json to {} ", json.get("fileIdentifier"), file, fName);
+                log.info("Wrote metadata with id {} (file {}) as json to {} ", json.get(FILE_IDENTIFIER_PROPERTY), file, fName);
                 counter++;
             } catch (SAXException | IOException | XPathExpressionException e) {
                 log.error("Error transforming file {}", file, e);
@@ -180,29 +208,32 @@ public class ISO2JSON {
         log.info("Transformed {} of {} files", counter, inputFiles.size());
     }
 
-    public void indexDirContent(Path aSrcDir) {
+    private void indexDirContent(Path aSrcDir) {
         log.info("Indexing dir content {}", aSrcDir);
 
-        String jsonStr = null;
         JSONParser parser = new JSONParser();
-        JSONObject jsObj = null;
 
-        Settings settings = ImmutableSettings.settingsBuilder().put("cluster.name", "elasticsearch").build();
+        YamlNode endpointConfig = this.config.get("endpoint");
+        log.info("Endopint configuration: {}", endpointConfig);
+
+        Settings settings = ImmutableSettings.settingsBuilder().put("cluster.name", endpointConfig.get("cluster.name").asTextValue()).build();
 
         try (TransportClient client = new TransportClient(settings);) {
-            client.addTransportAddress(new InetSocketTransportAddress("localhost", 9300));
-
+            client.addTransportAddress(new InetSocketTransportAddress(endpointConfig.get("host").asTextValue(), endpointConfig.get("port").asIntValue()));
             int cpt = 0;
             Collection<File> inputFiles = FileUtils.listFiles(aSrcDir.toFile(), new String[]{"json"}, false);
+            log.info("Indexing {} files...", inputFiles.size());
+            
             for (File file : inputFiles) {
 
                 try {
-                    jsonStr = FileUtils.readFileToString(file);
-                    jsObj = (JSONObject) parser.parse(jsonStr);
+                    String jsonStr = FileUtils.readFileToString(file);
+                    JSONObject jsObj = (JSONObject) parser.parse(jsonStr);
 
-                    String index = "eumetsat-catalogue";
-                    String type = "product";
-                    String id = (String) jsObj.get("fileIdentifier");
+                    String index = endpointConfig.get("index").asTextValue();
+                    String type = endpointConfig.get("type").asTextValue();
+
+                    String id = (String) jsObj.get(FILE_IDENTIFIER_PROPERTY);
                     log.debug("Adding {} (type: {}) to {}", id, type, index);
                     IndexResponse response = client.prepareIndex(index, type, id)
                             .setSource(jsObj.toJSONString())
@@ -223,18 +254,6 @@ public class ISO2JSON {
         }
     }
 
-    public static void main(String[] args) throws IOException {
-        ISO2JSON transformer = new ISO2JSON();
-
-        Path srcDir = Paths.get("C:\\Users\\danu\\Documents\\2014_EUMETSAT\\metadata");
-
-        Path destDir = Files.createTempDirectory("eumetsat-pn-json-results_");
-
-        transformer.createInfoToIndex(srcDir, destDir);
-
-        transformer.indexDirContent(destDir);
-    }
-
     private void appendIfResultNotNull(XPath xpath, Document xml, StringBuilder sb, String expression) throws XPathExpressionException {
         String result = xpath.compile(expression).evaluate(xml);
         if (result != null) {
@@ -252,7 +271,7 @@ public class ISO2JSON {
         String fileID = xPath.compile(xpathFileID).evaluate(xmlDocument);
         log.debug(" >>> ", xpathFileID, fileID);
         if (fileID != null) {
-            jsonObject.put("fileIdentifier", fileID);
+            jsonObject.put(FILE_IDENTIFIER_PROPERTY, fileID);
         }
 
         expression = "//*[local-name()='hierarchyLevelName']/*[local-name()='CharacterString']";
@@ -263,7 +282,7 @@ public class ISO2JSON {
             list.add(nodeList.item(i).getFirstChild().getNodeValue());
         }
         if (list.size() > 0) {
-            JSONObject hierarchies = parseThemeHierarchy((String) jsonObject.get("fileIdentifier"), list);
+            JSONObject hierarchies = parseThemeHierarchy((String) jsonObject.get(FILE_IDENTIFIER_PROPERTY), list);
             hierarchies.writeJSONString(writer);
             jsonObject.put("hierarchyNames", hierarchies);
             log.debug(" >>> ", expression, jsonObject.get("hierarchyNames"));
@@ -399,5 +418,26 @@ public class ISO2JSON {
         jsonObject.put("location", latlonMap);
 
         return jsonObject;
+    }
+
+    private void transformAndIndex() throws IOException {
+        Path tempdir = Files.createTempDirectory(config.get("tempdirnameprefix").asTextValue());
+        createInfoToIndex(Paths.get(config.get("srcdir").asTextValue()), tempdir);
+
+        indexDirContent(tempdir);
+    }
+
+    public static void main(String[] args) throws IOException {
+        try {
+            URI configuration = ISO2JSON.class.getResource("/feeder-log4j2.xml").toURI();
+            Configurator.initialize("eumetsat.pn", null, configuration);
+        } catch (URISyntaxException e) {
+            log.error("Could not configure logging: {}", e.getMessage());
+        }
+
+        ISO2JSON transformer = new ISO2JSON();
+        transformer.transformAndIndex();
+
+        log.info("Finished.");
     }
 }

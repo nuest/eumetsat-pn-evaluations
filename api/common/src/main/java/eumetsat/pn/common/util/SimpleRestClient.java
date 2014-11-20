@@ -19,11 +19,17 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.HashMap;
 import java.util.Scanner;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * origin: http://jeff.robbins.ws/code/simple-java-rest-client
+ * 
+ * Logger added by danu
  */
 public class SimpleRestClient {
+    
+    private static final Logger log = LoggerFactory.getLogger(SimpleRestClient.class);
 
     public WebResponse doGetRequest(URL url, HashMap<String, String> headers, HashMap<String, String> params, String body, boolean debug) {
         GET get = new GET(url, headers, params, body);
@@ -136,7 +142,7 @@ public class SimpleRestClient {
 
         sb.append("\n==========================================================");
 
-        System.out.println(sb.toString());
+        log.info("\n{}\n", sb.toString());
     }
 
     private class Request {

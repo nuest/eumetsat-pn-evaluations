@@ -75,10 +75,16 @@ public class App {
 
     private final String engine;
 
+    private final String searchEndpointBaseUrl;
+
+    private final String productEndpointUrlString;
+
     public App() {
         this.cfg = new Configuration(Configuration.VERSION_2_3_21);
         this.cfg.setClassForTemplateLoading(this.getClass(), "/");
-        this.searchEndpointUrlString = "http://localhost:9200/_search";
+        this.searchEndpointBaseUrl = "http://localhost:9200/";
+        this.searchEndpointUrlString = this.searchEndpointBaseUrl + "_search";
+        this.productEndpointUrlString = this.searchEndpointBaseUrl + "eumetsat-catalogue/product/";
         this.engine = "Elasticsearch";
 
         log.info("NEW {}", this);
@@ -99,9 +105,9 @@ public class App {
 
         pagination.put("nb_pages", nb_pages);
         pagination.put("current_page", (from_element / ELEM_PER_PAGE));
-        System.out.println("Current page = " + (from_element / ELEM_PER_PAGE));
         pagination.put("elem_per_page", ELEM_PER_PAGE);
 
+        log.trace("Pagination computed: {} of {}, {} items per page", pagination.get("current_page"), pagination.get("nb_pages"), pagination.get("elem_per_page"));
         return pagination;
     }
 
@@ -112,11 +118,11 @@ public class App {
      * @return
      * @throws Exception
      */
-    private Map<String, Object> getProductDescriptionFromElSearch(String id)
-            throws Exception {
+    private Map<String, Object> getProductDescriptionFromElSearch(String id) throws MalformedURLException, ParseException {
+        Map<String, Object> data = new HashMap<>();
 
         //create the url with the id passed in argument
-        URL url = new URL("http://localhost:9200/eumetsat-catalogue/product/" + id);
+        URL url = new URL(this.productEndpointUrlString + id);
 
         HashMap<String, String> headers = new HashMap<>();
         HashMap<String, String> params = new HashMap<>();
@@ -126,11 +132,7 @@ public class App {
         WebResponse response = rClient.doGetRequest(url, headers, params,
                 body, debug);
 
-        System.out.println("response = " + response);
-
-        //if response.status
-        // template input
-        Map<String, Object> data = new HashMap<>();
+        log.trace("response = " + response);
 
         JSONParser parser = new JSONParser();
 
@@ -156,7 +158,7 @@ public class App {
         Multimap<String, String> filterTermsMap = HashMultimap.create();
 
         //parse only when there is something to return
-        if (filterString.length() > 0) {
+        if (filterString != null && filterString.length() > 0) {
             // Do not use a regexpr for the moment but should do
             String[] elems = filterString.split("[\\+, ]");
 
@@ -196,7 +198,9 @@ public class App {
      */
     private Map<String, Object> searchQueryElasticSearch(String searchTerms, String filterString, int from, int size) {
         Map<String, Object> data = new HashMap<>();
-        data.put("search_terms", searchTerms); // put it here rightaway so it can be used in template even when empty result
+        // put "session" parameters here rightaway so it can be used in template even when empty result
+        data.put("search_terms", searchTerms);
+        data.put("filter_terms", filterString);
 
         URL url;
         try {
@@ -329,7 +333,7 @@ public class App {
             }
         }
 
-        stopwatch.stop(); // optional
+        stopwatch.stop();
 
         data.put("elapsed", (double) (stopwatch.elapsed(TimeUnit.MILLISECONDS)) / (double) 1000);
 
@@ -399,22 +403,16 @@ public class App {
                     try {
                         from = Integer.parseInt(request.queryParams("from"));
                     } catch (Exception e) {
-                        System.out.println("from parameter = " + from + ". It cannot be converted to int. default to -1.");
-                        e.printStackTrace(System.out);
+                        log.error("Parameter 'from' cannot be converted to int. default to -1.", e);
                     }
 
                     try {
                         size = Integer.parseInt(request.queryParams("size"));
                     } catch (Exception e) {
-                        System.out.println("size parameter = " + size + ". It cannot be converted to int. default to -1.");
-                        e.printStackTrace(System.out);
+                        log.error("Parameter 'size' cannot be converted to int. default to -1.", e);
                     }
 
-                    // System.out.println(request.queryString());
-                    System.out.println("SearchTerms " + searchTerms);
-                    System.out.println("FilterTerms " + filterTerms);
-                    System.out.println("From " + from);
-                    System.out.println("Size " + size);
+                    log.trace("Search terms: {} | Filter terms: {} | From: {} | Size: {}", searchTerms, filterTerms, from, size);
 
                     Map<String, Object> data = searchQueryElasticSearch(searchTerms, filterTerms, from, size);
                     attributes.putAll(data);
@@ -453,14 +451,13 @@ public class App {
                     attributes.putAll(data);
 
                     mav = new ModelAndView(attributes, "/templates/product_description.ftl");
-                } catch (Exception e) {
+                } catch (RuntimeException | MalformedURLException | ParseException e) {
+                    log.error("Error during product description page.", e);
                     // TODO return error view
                     StringWriter errors = new StringWriter();
                     e.printStackTrace(new PrintWriter(errors));
                     String str = errors.toString();
-                    // print in out
-                    System.out.println(str);
-                    halt(401, "Error while returning responses. error = " + str);
+                    halt(401, "Error while returning responses: \n{}" + str);
                 }
 
                 return mav;
