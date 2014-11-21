@@ -1,3 +1,8 @@
+body {
+    padding-top: 70px;
+    padding-bottom: 30px;
+}
+
 !decrease navbar size
 .navbar-nav > li > a {padding-top:5px !important; padding-bottom:5px !important;}
 .navbar {min-height:32px !important}
@@ -17,4 +22,18 @@
     color: #ffffff;
     text-decoration: none;
     cursor: pointer;
+}
+
+#resultlist ul {
+    list-style-type: none;
+}
+
+#resultlist li {
+    border-bottom: 1px #eeeeee solid;
+}
+
+#resultlist img {
+    border: 0;
+    margin: 1em;
+    float: right;
 }

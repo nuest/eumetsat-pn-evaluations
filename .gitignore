@@ -21,3 +21,4 @@ hs_err_pid*
 /apps/common-files/target/
 /apps/elasticsearch-webapp/logs
 nb-configuration.xml
+apps/solr-webapp/logs/

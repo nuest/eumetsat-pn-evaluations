@@ -1,0 +1,10 @@
+---
+solr:
+    app:
+        port: 5678
+        searchendpoint:
+            url: http://localhost:1234/
+            paths:
+                search: _search
+                productinfo: eumetsat-catalogue/product/
+        name: Solr

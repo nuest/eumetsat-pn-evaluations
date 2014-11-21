@@ -6,7 +6,7 @@
         <#include "head.ftl">
 
               <script> 
-                    <%-- TODO: move this to pn.js -->
+                    <#-- TODO: move this to pn.js -->
 
                   <!-- code to change url on facets dynamically -->
                   $(document).ready(function() {
@@ -81,44 +81,56 @@
     <body>
         <div class="container-fluid">
 
-            <#include "navbar.ftl">
+        <#include "navbar.ftl">
 
-            <div class="row"><#-- row 2 contains hits and so on -->
-                <div class="col-md-2">&nbsp;</div>
-                <div class="col-md-10">
-                    </br>
+        <#include "messages.ftl">
+
+        <div class="row"><#-- row 2 contains hits and so on -->
+            <div class="col-md-2">&nbsp;</div>
+            <div class="col-md-10">
+                <#if total_hits?? && elapsed??>
                     <p class="text-muted">
                         <small>About ${total_hits} results (${elapsed} milliseconds)</small>
                     </p>
-                </div>
+                </#if>
             </div>
+        </div>
 
         <div class="row"><#-- row 3 with the results -->
             <div class="col-md-2">
                 <ul id="sidebar" class="nav nav-stacked affix">
                     <#if facets??>
                         <#list facets?keys as facet>
-                           <!--<a href="#sec0">${facet?cap_first}<span class="badge pull-right">${facets[facet].total}</span></a>-->
-                           <p>${facet?cap_first}</p>
-                           <ul class="nav">
-                                   <#list facets[facet].terms as aterm>
-                                      <#if ! tohide?seq_contains("${facet}:${aterm.term}")>
-                                        <li><small><a class="facetref" data-filter="${facet?replace(" ","")}:${aterm.term}" href="/search/results?search-terms=${search_terms}&from=0&size=10&filter-terms=${facet}:${aterm.term}"> --- ${aterm.term?lower_case}<span class="badge pull-right">${aterm.count}</span></small></a></li>
-                                      </#if>
-                                   </#list>
-                           </ul>
+                           <#--<a href="#sec0">${facet?cap_first}<span class="badge pull-right">${facets[facet].total}</span></a>-->
+                           <li style="margin-top: 1em;">
+                                <h5>${facet?cap_first}</h5>
+                                <ul class="nav">
+                                    <#list facets[facet].terms as aterm>
+                                       <#if ! tohide?seq_contains("${facet}:${aterm.term}")>
+                                         <li><small><a class="facetref" data-filter="${facet?replace(" ","")}:${aterm.term}" href="/search/results?search-terms=${search_terms}&from=0&size=10&filter-terms=${facet}:${aterm.term}">${aterm.term?lower_case}<span class="badge pull-right">${aterm.count}</span></small></a></li>
+                                       </#if>
+                                    </#list>
+                                </ul>
+                            </li>
                         </#list>
                     </#if>
                 </ul>
             </div>
-            <div class="col-md-10">
+
+            <div class="col-md-10" id="resultlist">
                 <#if hits??>
+                    <ul>
                     <#list hits as hit>
-                        <h5><a href="/product_description?id=${hit.id}">${hit.title}</a></h5>
-                        <p class="text-justify">${hit.abstract}</p>
-                        <p class="text-muted"><small>score: ${hit.score}</small></p>
-                        <hr>
+                        <li>
+                            <h5><a href="/product_description?id=${hit.id}">${hit.title}</a>&nbsp<#if hit.status?? && hit.status != ""><span class="badge">${hit.status}</span></#if></h5>
+                            <p class="text-justify">${hit.abstract}</p>
+                            <p class="text-muted"><small>score: ${hit.score} | Keywords: ${hit.keywords}</small></p>
+                            <#if hit.thumbnail?? && hit.thumbnail != "">
+                                <img src="${hit.thumbnail}" width="80" style="resultthumbnail" alt="Thumbnail for ${hit.id}"/>
+                            </#if>
+                        </li>
                     </#list>
+                    </ul>
                 </#if>
             </div>
          </div><#-- row 3 -->
