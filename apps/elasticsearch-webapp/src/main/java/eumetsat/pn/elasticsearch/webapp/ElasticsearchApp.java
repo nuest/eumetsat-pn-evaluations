@@ -130,6 +130,7 @@ public class ElasticsearchApp extends AbstractApp {
             url = new URL(searchEndpointUrlString);
         } catch (MalformedURLException e) {
             log.error("Search enpoint URL malformed: {}", e.getMessage());
+            addMessage(data, MessageLevel.danger, "Search endpoint URL is malformed: " + e.getMessage());
             return data;
         }
 
@@ -205,8 +206,9 @@ public class ElasticsearchApp extends AbstractApp {
                 JSONObject jsObj;
                 try {
                     jsObj = (JSONObject) parser.parse(response.body);
-                } catch (ParseException ex) {
-                    log.error("Could not parse search server response: {}", ex);
+                } catch (ParseException e) {
+                    log.error("Could not parse search server response: {}", e);
+                    addMessage(data, MessageLevel.danger, "Could not parse server response: " + e.getMessage());
                     return data;
                 }
 

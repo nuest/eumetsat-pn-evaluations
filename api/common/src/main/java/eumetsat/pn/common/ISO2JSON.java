@@ -60,7 +60,7 @@ public abstract class ISO2JSON {
     public ISO2JSON(String configFile) {
         try (InputStream fis = ISO2JSON.class.getResourceAsStream(configFile)) {
             YamlNode n = new Yaml().load(fis);
-            this.config = n.get("elasticsearch").get("feeder");
+            this.config = n.get(getConfigBasename()).get("feeder");
         } catch (IOException e) {
             log.error("Could not load config from file {}", configFile, e);
         }
@@ -380,5 +380,7 @@ public abstract class ISO2JSON {
             log.info("Testing enabled, not indexing documents from file:///{}", tempdir);
         }
     }
+
+    protected abstract String getConfigBasename();
 
 }

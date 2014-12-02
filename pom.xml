@@ -92,6 +92,12 @@
                 <artifactId>yaml</artifactId>
                 <version>1.0.0</version>
             </dependency>
+            
+            <dependency>
+                <groupId>org.apache.solr</groupId>
+                <artifactId>solr-solrj</artifactId>
+                <version>4.10.2</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 

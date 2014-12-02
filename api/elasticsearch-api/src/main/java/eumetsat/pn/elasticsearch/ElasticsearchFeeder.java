@@ -90,4 +90,9 @@ public class ElasticsearchFeeder extends ISO2JSON {
             log.error("Error indexing json files.", e);
         }
     }
+    
+    @Override
+    protected String getConfigBasename() {
+        return "elasticsearch";
+    }
 }

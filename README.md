@@ -27,9 +27,9 @@ etc/new_index_mapping.sh
 
 ### 2) Index metadata records
 
-* Run ``eumetsat.pn.commmon.ISO2JSON.main()`` in the module ``api/common-api``
+* Run ``eumetsat.pn.elasticsearch.ElasticsearchFeeder.main()`` in the module ``api/elasticsearch-api``
   * This class extracts info from XML records with XPath and create a JSON stored in a file for each record. Then all the JSON files are indexed in the Elasticsearch database.
-  * The configuration file is ``api/common-api/src/main/resources/feederconfig.yml``
+  * The configuration file is ``api/elasticsearch-api/src/main/resources/feederconfig.yml``
   * An example JSON record is described here https://gist.github.com/gaubert/e26eb189f7e42317fbb1
 
 ### 3) Search web app
@@ -38,7 +38,7 @@ The web app is based a on a tiny web framework called [Spark](http://www.sparkja
 
 Elastic Search is accessed using the REST interface with a REST client.
 
-* Run ``org.elastic.web.SparkSearchWeb.main()`` in the module ``apps/elasticsearch-webapp``
+* Run ``eumetsat.pn.elasticsearch.webapp.ElasticsearchApp.main()`` in the module ``apps/elasticsearch-webapp``
 * Point your browser to http://localhost:4567/
 * The configuration file is ``apps/elasticsearch-webapp/src/main/resources/app.yml``
 
@@ -60,21 +60,29 @@ Quick guide to launch the prototype for [Solr](http://lucene.apache.org/solr/).
 
 ### 1) Run Solr
 
+Download and unzip Solr from http://lucene.apache.org/solr/mirrors-solr-latest-redir.html. Install and configure it based on the [quickstart tutorial](http://lucene.apache.org/solr/quickstart.html).
+
 http://stackoverflow.com/questions/7904802/running-solr-in-memory
 solrconfig.xml > <directoryFactory name="DirectoryFactory" class="solr.RAMDirectoryFactory"/>
 
 ```
-..
+cd /<path-to-solr>/bin/
+solr start -f -V -s C:\Users\danu\Documents\2014_EUMETSAT\workspace\eumetsat-pn-evaluations\apps\solr-webapp\src\main\resources\
+
 ```
 
 ### 2) Index metadata records
 
 * Run ``..``
 
+
+
 ### 3) Search web app
 
-* Run ``..``
-* Point your browser to http://localhost:4568/
+* Run ``eumetsat.pn.solr.webapp.SolrApp.main()`` in the module ``apps/solr-webapp``
+* Point your browser to http://localhost:5678/
+* The configuration file is ``apps/solr-webapp/src/main/resources/app.yml``
+
 
 #### Features
 

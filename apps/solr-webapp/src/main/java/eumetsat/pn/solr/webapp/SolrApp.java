@@ -87,6 +87,7 @@ public class SolrApp extends AbstractApp {
             url = new URL(searchEndpointUrlString);
         } catch (MalformedURLException e) {
             log.error("Search enpoint URL malformed: {}", e.getMessage());
+            addMessage(data, MessageLevel.danger, "Search endpoint URL is malformed: " + e.getMessage());
             return data;
         }
 
@@ -102,7 +103,7 @@ public class SolrApp extends AbstractApp {
 
         // query Solr
         
-        // transform JSON to map for template engine
+        // transform JSON to data map for template engine
         
         stopwatch.stop();
 
