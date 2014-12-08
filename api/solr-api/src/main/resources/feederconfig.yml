@@ -4,12 +4,12 @@ solr:
         srcdir: C:/Users/danu/Documents/2014_EUMETSAT/metadata
         tempdirnameprefix: eumetsat-pn-json-results_
         endpoint:
-            cluster.name: eumetsat-cluster
-            url: http://localhost:8983/solr/
-            index: eumetsat-catalogue
-            type: product
+            #cluster.name: 
+            url: http://localhost:8983/solr
+            collection: eumetsat
+            #type: product
         # set this to false to not send documents to index
-        index: false
+        index: true
         
 
 ...

@@ -62,14 +62,32 @@ Quick guide to launch the prototype for [Solr](http://lucene.apache.org/solr/).
 
 Download and unzip Solr from http://lucene.apache.org/solr/mirrors-solr-latest-redir.html. Install and configure it based on the [quickstart tutorial](http://lucene.apache.org/solr/quickstart.html).
 
-http://stackoverflow.com/questions/7904802/running-solr-in-memory
-solrconfig.xml > <directoryFactory name="DirectoryFactory" class="solr.RAMDirectoryFactory"/>
+```
+cd /<path-to-solr>/example/
+java -Dsolr.solr.home=<path-to-workspace>/eumetsat-pn-evaluations/apps/solr-webapp/src/main/resources/ -jar start.jar
+```
+
+Example (to make this work in Windows PowerShell the parameter is wrapped: "-D..."):
 
 ```
-cd /<path-to-solr>/bin/
-solr start -f -V -s C:\Users\danu\Documents\2014_EUMETSAT\workspace\eumetsat-pn-evaluations\apps\solr-webapp\src\main\resources\
-
+java "-Dsolr.solr.home=C:\Users\danu\Documents\2014_EUMETSAT\workspace\eumetsat-pn-evaluations\apps\solr-webapp\src\main\resources\" -jar start.jar
 ```
+
+Check if Solr is running by querying the configured collection: http://localhost:8983/solr/eumetsat/query?q=weather
+
+### 2) Configure Solr
+
+To help comparability, we try to stick to default values where possible.
+
+* See https://cwiki.apache.org/confluence/display/solr/A+Step+Closer for details of the `solr.home` - directory
+* **core.properties** marks the solr.home directory (https://wiki.apache.org/solr/Core%20Discovery%20%284.4%20and%20beyond%29)
+* **conf/schema.xml**
+  * http://www.solrtutorial.com/schema-xml.html
+  * pre-defined field types suffice
+* **conf/solrconfig.xml** - parameters for configuring Solr and Solr search components
+  * Run in memory (http://stackoverflow.com/questions/7904802/running-solr-in-memory)
+* **solr.xml** - definition of the cores to be used by Solr, the directory is provided as parameter `-s` when starting Solr
+* **conf/solrcore.properties** - property configuration file for a core, per each core (optional)
 
 ### 2) Index metadata records
 

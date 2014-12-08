@@ -1,7 +1,7 @@
 ---
 elasticsearch: 
     feeder: 
-        srcdir: C:/Users/danu/Documents/2014_EUMETSAT/metadata
+        srcdir: C:/Users/danu/Documents/2014_EUMETSAT/workspace/eumetsat-pn-evaluations/metadata
         tempdirnameprefix: eumetsat-pn-json-results_
         endpoint:
             cluster.name: eumetsat-cluster
@@ -10,7 +10,7 @@ elasticsearch:
             index: eumetsat-catalogue
             type: product
         # set this to false to not send documents to index
-        index: false
+        index: true
         
 
 ...

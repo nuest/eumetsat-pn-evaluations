@@ -72,6 +72,8 @@
        The examples below can be used to load some solr-contribs along 
        with their external dependencies.
     -->
+    
+    <!-- danu deactivated
   <lib dir="../../../contrib/extraction/lib" regex=".*\.jar" />
   <lib dir="../../../dist/" regex="solr-cell-\d.*\.jar" />
 
@@ -83,6 +85,7 @@
 
   <lib dir="../../../contrib/velocity/lib" regex=".*\.jar" />
   <lib dir="../../../dist/" regex="solr-velocity-\d.*\.jar" />
+  -->
 
   <!-- an exact 'path' can be used instead of a 'dir' to specify a 
        specific jar file.  This will cause a serious error to be logged 
@@ -1599,14 +1602,15 @@
        results for a given query regardless of the normal lucene
        scoring.
     -->
+  <!-- danu deactivated
   <searchComponent name="elevator" class="solr.QueryElevationComponent" >
-    <!-- pick a fieldType to analyze queries -->
+    <!- - pick a fieldType to analyze queries - ->
     <str name="queryFieldType">string</str>
     <str name="config-file">elevate.xml</str>
-  </searchComponent>
+  </searchComponent> -->
 
   <!-- A request handler for demonstrating the elevator component -->
-  <requestHandler name="/elevate" class="solr.SearchHandler" startup="lazy">
+  <!-- danu deactivated <requestHandler name="/elevate" class="solr.SearchHandler" startup="lazy">
     <lst name="defaults">
       <str name="echoParams">explicit</str>
       <str name="df">text</str>
@@ -1614,7 +1618,7 @@
     <arr name="last-components">
       <str>elevator</str>
     </arr>
-  </requestHandler>
+  </requestHandler>-->
 
   <!-- Highlighting Component
 

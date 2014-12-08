@@ -22,3 +22,7 @@ hs_err_pid*
 /apps/elasticsearch-webapp/logs
 nb-configuration.xml
 apps/solr-webapp/logs/
+/apps/solr-webapp/src/main/resources/eumetsat-core/conf/_schema_analysis_stopwords_english.json
+/apps/solr-webapp/src/main/resources/eumetsat-core/conf/_rest_managed.json
+/apps/solr-webapp/src/main/resources/eumetsat/conf/_rest_managed.json
+/apps/solr-webapp/src/main/resources/eumetsat/conf/_schema_analysis_stopwords_english.json
