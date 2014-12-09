@@ -9,7 +9,6 @@ import eumetsat.pn.common.AbstractApp;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.HashMultimap;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import eumetsat.pn.common.util.SimpleRestClient;
 import eumetsat.pn.common.util.SimpleRestClient.WebResponse;
@@ -109,15 +108,6 @@ public class ElasticsearchApp extends AbstractApp {
         return filterTermsMap;
     }
 
-    //Static immutable map to create a translation table between the facets and the name displayed on screen to users
-    //TODO to externalize in a config file
-    static final ImmutableMap<String, String> FACETS2HIERACHYNAMES = ImmutableMap.of("satellites", "hierarchyNames.satellite",
-            "instruments", "hierarchyNames.instrument",
-            "categories", "hierarchyNames.category",
-            "societalBenefitArea", "hierarchyNames.societalBenefitArea",
-            "distribution", "hierarchyNames.distribution"
-    );
-
     @Override
     protected Map<String, Object> search(String searchTerms, String filterString, int from, int size) {
         Map<String, Object> data = new HashMap<>();
@@ -163,18 +153,21 @@ public class ElasticsearchApp extends AbstractApp {
 
             filterConstruct = " \"bool\" : { \"must\" : [" + filterTerms + "] }";
         }
+        
+        int lengthOfTitle = 300;
+        int lengthOfAbstract = 5000;
 
         String body = "{ "
                 + // pagination information
                 "\"from\" : " + from + ", \"size\" : " + size + ","
                 + // request highlighted info
                 "\"highlight\" : { \"pre_tags\" : [\"<em><strong>\"], \"post_tags\" : [\"</strong></em>\"], "
-                + "                  \"fields\" : { \"identificationInfo.title\": {\"fragment_size\" : 300, \"number_of_fragments\" : 1}, "
-                + "                                 \"identificationInfo.abstract\": {\"fragment_size\" : 5000, \"number_of_fragments\" : 1} } } , "
+                + "                  \"fields\" : { \"identificationInfo.title\": {\"fragment_size\" : " + lengthOfTitle + ", \"number_of_fragments\" : 1}, "
+                + "                                 \"identificationInfo.abstract\": {\"fragment_size\" : " + lengthOfAbstract + ", \"number_of_fragments\" : 1} } } , "
                 + // request facets to refine search (here the maximum number of facets can be configured)
                 " \"facets\" :   { \"satellites\": { \"terms\" : { \"field\" : \"hierarchyNames.satellite\", \"size\":4 } }, "
                 + "                  \"instruments\": { \"terms\" : { \"field\" : \"hierarchyNames.instrument\", \"size\":4  } }, "
-                + "                  \"categories\": { \"terms\" : { \"field\" : \"hierarchyNames.category\", \"size\":4 } }, "
+                + "                  \"categories\": { \"terms\" : { \"field\" : \"hierarchyNames.category\", \"size\":10 } }, "
                 + "                  \"societal Benefit Area\": { \"terms\" : { \"field\" : \"hierarchyNames.societalBenefitArea\", \"size\":5 } }, "
                 + "                  \"distribution\": { \"terms\" : { \"field\" : \"hierarchyNames.distribution\", \"size\":5 } } "
                 + "                },"

@@ -30,6 +30,7 @@ import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.client.solrj.response.UpdateResponse;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrInputDocument;
+import org.json.simple.JSONArray;
 
 /**
  *
@@ -85,17 +86,16 @@ public class SolrFeeder extends ISO2JSON {
                 String jsonStr = FileUtils.readFileToString(file);
                 JSONObject jsObj = (JSONObject) parser.parse(jsonStr);
 
-                SolrInputDocument input = new SolrInputDocument();
-                // field values should match schema.xml
+                try {
+                    SolrInputDocument input = createInputDoc(jsObj);
 
-                // solr can add new fields on the fly: http://heliosearch.org/solr/getting-started/
-                input.addField("id", jsObj.get("fileIdentifier"));
-                JSONObject info = (JSONObject) jsObj.get("identificationInfo");
-                input.addField("title", info.get("title"));
+                    log.debug("Adding {} to collection {}: {}", file.getName(), collection, input);
+                    solr.add(input);
 
-                String id = (String) jsObj.get(FILE_IDENTIFIER_PROPERTY);
-                log.debug("Adding {} to collection {}", id, collection);
-                solr.add(input);
+                    cpt++;
+                } catch (RuntimeException e) {
+                    log.error("Error processing input document {}: {}, {}", file, e, e.getMessage());
+                }
 
                 if (cpt % 42 == 0) { // periodically flush
                     log.info("Commiting to server, document count is {}", cpt);
@@ -103,16 +103,101 @@ public class SolrFeeder extends ISO2JSON {
                     log.info("Response status: {} (time: {}): {}", response.getStatus(), response.getElapsedTime(), response.toString());
                 }
 
-                cpt++;
-
             } catch (IOException | ParseException | SolrServerException e) {
                 log.error("Error comitting document based on file {}", file, e);
             }
         }
 
+        try {
+            solr.commit();
+        } catch (IOException | SolrServerException e) {
+            log.error("Error comitting document", e);
+        }
+        
         solr.shutdown();
 
         log.info("Indexed {} of {} files.", cpt, inputFiles.size());
+    }
+
+    private SolrInputDocument createInputDoc(JSONObject jsObj) {
+        SolrInputDocument input = new SolrInputDocument();
+                // field values should match schema.xml
+
+        // solr can add new fields on the fly: http://heliosearch.org/solr/getting-started/
+        String id = (String) jsObj.get(FILE_IDENTIFIER_PROPERTY);
+        input.addField("id", id);
+
+        JSONObject info = (JSONObject) jsObj.get("identificationInfo");
+        input.addField("title", info.get("title"));
+        input.addField("description", info.get("abstract"));
+        if (!info.get("thumbnail").toString().isEmpty()) {
+            input.addField("thumbnail_s", info.get("thumbnail"));
+        }
+
+        JSONArray keywords = (JSONArray) info.get("keywords");
+        if (!keywords.isEmpty()) {
+            input.addField("keywords", keywords.toArray());
+        }
+
+        if (!info.get("status").toString().isEmpty()) {
+            input.addField("status_s", info.get("status"));
+        }
+
+        JSONObject hierarchy = (JSONObject) jsObj.get("hierarchyNames");
+
+        //public static final ImmutableMap<String, String> FACETS2HIERACHYNAMES = ImmutableMap.of("satellites", "hierarchyNames.satellite",
+        //"instruments", "hierarchyNames.instrument",
+        //"categories", "hierarchyNames.category",
+        //"societalBenefitArea", "hierarchyNames.societalBenefitArea",
+        //"distribution", "hierarchyNames.distribution");
+        if (hierarchy.get("satellite") != null && !hierarchy.get("satellite").toString().isEmpty()) {
+            input.addField("satellite_s", hierarchy.get("satellite"));
+        }
+
+        if (hierarchy.get("instrument") != null && !hierarchy.get("instrument").toString().isEmpty()) {
+            input.addField("instrument_s", hierarchy.get("instrument"));
+        }
+
+        JSONArray categories = (JSONArray) info.get("category");
+        if (categories != null && !categories.isEmpty()) {
+            input.addField("category", categories);
+        }
+
+        JSONArray sbas = (JSONArray) info.get("societalBenefitArea");
+        if (sbas != null && !sbas.isEmpty()) {
+            input.addField("societalBenefitArea_ss", sbas);
+        }
+
+        Collection<String> distrs = (Collection<String>) info.get("distribution");
+        if (distrs != null && !distrs.isEmpty()) {
+            input.addField("distribution_ss", distrs);
+        }
+
+        // https://cwiki.apache.org/confluence/display/solr/Spatial+Search
+        JSONObject location = (JSONObject) jsObj.get("location");
+        String type = (String) location.get("type");
+        if ("envelope".equals(type)) {
+            StringBuilder envelope = new StringBuilder();
+            // ISO2JSON: envelope.add(leftTopPt); envelope.add(rightDownPt);
+            JSONArray coords = (JSONArray) location.get("coordinates");
+            JSONArray leftTopPoint = (JSONArray) coords.get(0);
+            JSONArray rightDownPoint = (JSONArray) coords.get(1);
+
+            // Spatial search envelope: minX, maxX, maxY, minY
+            envelope.append("ENVELOPE(").append(leftTopPoint.get(0)).append(", ");
+            envelope.append(rightDownPoint.get(0)).append(", ");
+            envelope.append(leftTopPoint.get(1)).append(", ");
+            envelope.append(rightDownPoint.get(1)).append(")");
+            input.addField("boundingbox", envelope.toString());
+        } else {
+            log.warn("Unsupported location field value: {}", location.toJSONString());
+        }
+
+        JSONObject contact = (JSONObject) jsObj.get("contact");
+        input.addField("email_s", contact.get("email"));
+        input.addField("address_s", contact.get("address"));
+
+        return input;
     }
 
     @Override

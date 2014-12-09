@@ -19,7 +19,7 @@
             <AppenderRef ref="Console"/>
             <AppenderRef ref="asyncFile"/>
         </Logger>
-        <Root level="ERROR">
+        <Root level="DEBUG">
             <AppenderRef ref="Console"/>
         </Root>
     </Loggers>

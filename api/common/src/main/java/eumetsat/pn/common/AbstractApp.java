@@ -8,6 +8,7 @@ package eumetsat.pn.common;
 import com.github.autermann.yaml.Yaml;
 import com.github.autermann.yaml.YamlNode;
 import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.ListMultimap;
 import com.google.common.collect.Multimap;
@@ -41,7 +42,16 @@ public abstract class AbstractApp {
 
     protected static final String SEARCH_RESULTS_ROUTE = "/search/results";
 
-//elements per page (currently only a static constant, to be externalized)
+    //Static immutable map to create a translation table between the facets and the name displayed on screen to users
+    //TODO to externalize in a config file
+    public static final ImmutableMap<String, String> FACETS2HIERACHYNAMES = ImmutableMap.of("satellites", "hierarchyNames.satellite",
+            "instruments", "hierarchyNames.instrument",
+            "categories", "hierarchyNames.category",
+            "societalBenefitArea", "hierarchyNames.societalBenefitArea",
+            "distribution", "hierarchyNames.distribution"
+    );
+
+    //elements per page (currently only a static constant, to be externalized)
     static final int ELEM_PER_PAGE = 10;
 
     protected Configuration cfg;
@@ -82,6 +92,7 @@ public abstract class AbstractApp {
     protected abstract String getConfigBasename();
 
     public enum MessageLevel {
+
         success, info, warning, danger;
     }
 
