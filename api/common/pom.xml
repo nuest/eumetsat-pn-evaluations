@@ -29,7 +29,8 @@
             <artifactId>json-simple</artifactId>
         </dependency>
         <dependency>
-            <groupId>com.sparkjava</groupId>
+            <!--<groupId>com.sparkjava</groupId>-->
+            <groupId>org.graylog2</groupId>
             <artifactId>spark-core</artifactId>
         </dependency>
         <dependency>
@@ -43,6 +44,12 @@
         <dependency>
             <groupId>com.sparkjava</groupId>
             <artifactId>spark-template-freemarker</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.sparkjava</groupId>
+                    <artifactId>spark-core</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>com.github.autermann</groupId>

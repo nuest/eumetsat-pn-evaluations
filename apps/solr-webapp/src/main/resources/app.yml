@@ -8,3 +8,6 @@ solr:
                 search: _search
                 productinfo: eumetsat-catalogue/product/
         name: Solr
+    #embedded:
+    #    xml: solr.xml
+    #    home: /

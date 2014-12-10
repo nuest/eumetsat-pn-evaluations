@@ -17,6 +17,12 @@ cd /<path-to-elasticsearch>/bin/
 elasticsearch(.bat) -Des.config=/<path-to-local-repo>/apps/elasticsearch-webapp/src/main/resources/elasticsearch.yml
 ```
 
+Example (to make this work in Windows PowerShell the parameter is wrapped: "-D..."):
+
+```
+.\elasticsearch.bat "-Des.config=C:\Users\danu\Documents\2014_EUMETSAT\workspace\eumetsat-pn-evaluations\apps\elasticsearch-webapp\src\main\resources\elasticsearch.yml"
+```
+
 This will create a simple Elasticsearch store without persistence (working in RAM only).
 
 You must also define a new mapping for the products to avoid index with an analyzer the content of the hierarchyNames (topic categories) to be used to create the facets:
@@ -109,3 +115,7 @@ To help comparability, we try to stick to default values where possible.
 ### 4) Solr request examples
 
 ...
+
+## Run standalone
+
+An alternative to runnng from Java or in a servlet container is to create an executable jar, see [Step 11 of this tutorial](https://blog.openshift.com/developing-single-page-web-applications-using-java-8-spark-mongodb-and-angularjs/).

@@ -7,19 +7,19 @@ package eumetsat.pn.common;
 
 import com.github.autermann.yaml.Yaml;
 import com.github.autermann.yaml.YamlNode;
-import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.LinkedListMultimap;
-import com.google.common.collect.ListMultimap;
-import com.google.common.collect.Multimap;
 import freemarker.template.Configuration;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.MalformedURLException;
+import java.net.URISyntaxException;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Level;
 import org.json.simple.parser.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,7 +28,8 @@ import spark.Request;
 import spark.Response;
 import spark.Route;
 import spark.Spark;
-import spark.template.freemarker.FreeMarkerRoute;
+import spark.TemplateEngine;
+import spark.TemplateViewRoute;
 
 /**
  *
@@ -40,7 +41,11 @@ public abstract class AbstractApp {
 
     private static final String DEFAULT_CONFIG_FILE = "/app.yml";
 
-    protected static final String SEARCH_RESULTS_ROUTE = "/search/results";
+    protected static final String PRODUCT_DESCRIPTION_ROUTE = "/product_description";
+
+    protected static final String SEARCH_ROUTE = "/search";
+
+    protected static final String SEARCH_RESULTS_ROUTE = SEARCH_ROUTE + "/results";
 
     //Static immutable map to create a translation table between the facets and the name displayed on screen to users
     //TODO to externalize in a config file
@@ -86,7 +91,7 @@ public abstract class AbstractApp {
         this.name = this.config.get("name").asTextValue();
         this.port = this.config.get("port").asIntValue(4567);
 
-        log.debug("NEW app '{}' based on {}", this.name, configFile);
+        log.info("NEW app '{}' based on {}", this.name, configFile);
     }
 
     protected abstract String getConfigBasename();
@@ -161,15 +166,27 @@ public abstract class AbstractApp {
         return pagination;
     }
 
-    protected void run() {
+    public void run() {
+//        Path publicDir;
+//        try {
+//            publicDir = Paths.get(AbstractApp.class.getResource("/public").toURI());
+//        } catch (URISyntaxException e) {
+//            log.error("Error resolving public dir path", e);
+//            return;
+//        }
+//        log.info("Setting public file location to {}", publicDir.toAbsolutePath());
+//        Spark.staticFileLocation(publicDir.toAbsolutePath().toString());
+        
         Spark.staticFileLocation("public");
-        Spark.setPort(this.port);
+        Spark.port(this.port);
 
-        Spark.get(new FreeMarkerRoute("/search") {
+        TemplateEngine engine = new FreeMarkerTemplateEngine(cfg);
+
+        Spark.get(SEARCH_ROUTE, new TemplateViewRoute() {
+
             @Override
-            public Object handle(Request request, Response response) {
+            public ModelAndView handle(Request request, Response response) {
                 log.trace("Handle search request...");
-                setConfiguration(cfg);
                 ModelAndView mav = null;
                 Map<String, Object> attributes = new HashMap<>();
                 addGlobalAttributes(attributes);
@@ -180,17 +197,17 @@ public abstract class AbstractApp {
                     StringWriter errors = new StringWriter();
                     e.printStackTrace(new PrintWriter(errors));
                     String str = errors.toString();
-                    halt(401, "Error while accessing page search_page. error = " + str);
+                    Spark.halt(401, "Error while accessing page search_page. error = " + str);
                 }
                 return mav;
             }
-        });
+        }, engine);
 
-        Spark.get(new FreeMarkerRoute(SEARCH_RESULTS_ROUTE) {
+        Spark.get(SEARCH_RESULTS_ROUTE, new TemplateViewRoute() {
+
             @Override
-            public Object handle(Request request, Response response) {
+            public ModelAndView handle(Request request, Response response) {
                 log.trace("Handle search request: {}", request.raw().getRequestURL());
-                setConfiguration(cfg);
                 ModelAndView mav = null;
                 Map<String, Object> attributes = new HashMap<>();
                 attributes = addGlobalAttributes(attributes);
@@ -218,18 +235,18 @@ public abstract class AbstractApp {
                     StringWriter errors = new StringWriter();
                     e.printStackTrace(new PrintWriter(errors));
                     String str = errors.toString();
-                    halt(401, "Error while returning responses: \n\n" + str);
+                    Spark.halt(401, "Error while returning responses: \n\n" + str);
                 }
                 return mav;
             }
-        });
+        }, engine);
 
-        Spark.get(new FreeMarkerRoute("/product_description") {
+        Spark.get(PRODUCT_DESCRIPTION_ROUTE, new TemplateViewRoute() {
+
             @Override
-            public Object handle(Request request, Response response) {
+            public ModelAndView handle(Request request, Response response) {
                 log.trace("Handle product description request: ", request.raw().getRequestURL().toString());
                 String id = request.queryParams("id");
-                setConfiguration(cfg);
                 ModelAndView mav = null;
                 Map<String, Object> attributes = new HashMap<>();
                 attributes = addGlobalAttributes(attributes);
@@ -244,13 +261,13 @@ public abstract class AbstractApp {
                     StringWriter errors = new StringWriter();
                     e.printStackTrace(new PrintWriter(errors));
                     String str = errors.toString();
-                    halt(401, "Error while returning responses: \n{}" + str);
+                    Spark.halt(401, "Error while returning responses: \n{}" + str);
                 }
                 return mav;
             }
-        });
+        }, engine);
 
-        Spark.get(new Route("/") {
+        Spark.get("/", new Route() {
             @Override
             public Object handle(Request request, Response response) {
                 log.trace("Handle base request > redirect!");

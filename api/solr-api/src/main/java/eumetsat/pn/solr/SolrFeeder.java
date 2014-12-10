@@ -13,8 +13,6 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.file.Path;
 import java.util.Collection;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import org.apache.commons.io.FileUtils;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -22,13 +20,10 @@ import org.json.simple.parser.ParseException;
 import org.apache.logging.log4j.core.config.Configurator;
 import org.apache.solr.client.solrj.SolrServer;
 import org.apache.solr.client.solrj.SolrServerException;
-import org.apache.solr.client.solrj.impl.CloudSolrServer;
 import org.apache.solr.client.solrj.impl.ConcurrentUpdateSolrServer;
-import org.apache.solr.client.solrj.impl.HttpSolrServer;
 import org.apache.solr.client.solrj.impl.HttpSolrServer.RemoteSolrException;
 import org.apache.solr.client.solrj.response.SolrPingResponse;
 import org.apache.solr.client.solrj.response.UpdateResponse;
-import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrInputDocument;
 import org.json.simple.JSONArray;
 
@@ -37,6 +32,16 @@ import org.json.simple.JSONArray;
  * @author danu
  */
 public class SolrFeeder extends ISO2JSON {
+
+    private SolrServer server;
+
+    public SolrFeeder() {
+        super();
+    }
+
+    public SolrFeeder(SolrServer server) {
+        this.server = server;
+    }
 
     public static void main(String[] args) throws IOException {
         try {
@@ -52,21 +57,28 @@ public class SolrFeeder extends ISO2JSON {
         log.info("Finished.");
     }
 
+    @Override
     protected void indexDirContent(Path aSrcDir) {
         log.info("Indexing dir content {}", aSrcDir);
 
         JSONParser parser = new JSONParser();
 
         YamlNode endpointConfig = this.config.get("endpoint");
-        log.info("Endpoint configuration: {}", endpointConfig);
-
-        String solrEndpoint = endpointConfig.get("url").asTextValue();
         String collection = endpointConfig.get("collection").asTextValue();
-        SolrServer solr = new ConcurrentUpdateSolrServer(solrEndpoint + "/" + collection, 10, 1);
 
+        SolrServer solr;
+        if (this.server != null) {
+            solr = server;
+            log.info("Using embedded SolrServer: {}", solr);
+        } else {
+            log.info("Endpoint configuration: {}", endpointConfig);
+
+            String solrEndpoint = endpointConfig.get("url").asTextValue();
+            solr = new ConcurrentUpdateSolrServer(solrEndpoint + "/" + collection, 10, 1);
 //        CloudSolrServer solr = new CloudSolrServer(solrEndpoint);
 //        solr.setDefaultCollection(collection);
-        log.debug("Created Solr server: {}", solr);
+            log.info("Using HTTP SolrServer: {}", solr);
+        }
 
         SolrPingResponse ping;
         try {
@@ -89,7 +101,8 @@ public class SolrFeeder extends ISO2JSON {
                 try {
                     SolrInputDocument input = createInputDoc(jsObj);
 
-                    log.debug("Adding {} to collection {}: {}", file.getName(), collection, input);
+                    log.debug("Adding {} to collection {}", file.getName(), collection);
+                    log.trace("Full json of {}: {}", file.getName(), input);
                     solr.add(input);
 
                     cpt++;
@@ -113,7 +126,7 @@ public class SolrFeeder extends ISO2JSON {
         } catch (IOException | SolrServerException e) {
             log.error("Error comitting document", e);
         }
-        
+
         solr.shutdown();
 
         log.info("Indexed {} of {} files.", cpt, inputFiles.size());

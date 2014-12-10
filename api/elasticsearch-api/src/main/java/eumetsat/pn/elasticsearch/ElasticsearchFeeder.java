@@ -43,14 +43,14 @@ public class ElasticsearchFeeder extends ISO2JSON {
 
         log.info("Finished.");
     }
-    
+
     protected void indexDirContent(Path aSrcDir) {
         log.info("Indexing dir content {}", aSrcDir);
 
         JSONParser parser = new JSONParser();
 
         YamlNode endpointConfig = this.config.get("endpoint");
-        
+
         log.info("Endopint configuration: {}", endpointConfig);
 
         Settings settings = ImmutableSettings.settingsBuilder().put("cluster.name", endpointConfig.get("cluster.name").asTextValue()).build();
@@ -79,7 +79,11 @@ public class ElasticsearchFeeder extends ISO2JSON {
 
                     cpt++;
 
-                    log.debug("Response: {} | version: {}", response.getId(), response.getVersion());
+                    if (response.isCreated()) {
+                        log.trace("Response: {} | version: {}", response.getId(), response.getVersion());
+                    } else {
+                        log.warn("NOT created! ResponseResponse: {}", response.getId());
+                    }
                 } catch (IOException | ParseException e) {
                     log.error("Error with json file ", file, e);
                 }
@@ -90,7 +94,7 @@ public class ElasticsearchFeeder extends ISO2JSON {
             log.error("Error indexing json files.", e);
         }
     }
-    
+
     @Override
     protected String getConfigBasename() {
         return "elasticsearch";

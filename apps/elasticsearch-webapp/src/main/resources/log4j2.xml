@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Configuration status="WARN" monitorInterval="30">
+<Configuration status="WARN" monitorInterval="5">
     <Appenders>
         <Console name="Console" target="SYSTEM_OUT">
             <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
@@ -15,7 +15,7 @@
     </Appenders>
   
     <Loggers>
-        <Logger name="eumetsat.pn" level="TRACE" additivity="false">
+        <Logger name="eumetsat.pn" level="DEBUG" additivity="false">
             <AppenderRef ref="Console"/>
             <AppenderRef ref="asyncFile"/>
         </Logger>

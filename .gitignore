@@ -26,3 +26,5 @@ apps/solr-webapp/logs/
 /apps/solr-webapp/src/main/resources/eumetsat-core/conf/_rest_managed.json
 /apps/solr-webapp/src/main/resources/eumetsat/conf/_rest_managed.json
 /apps/solr-webapp/src/main/resources/eumetsat/conf/_schema_analysis_stopwords_english.json
+/apps/elasticsearch-webapp/data
+apps/elasticsearch-webapp/nbactions.xml

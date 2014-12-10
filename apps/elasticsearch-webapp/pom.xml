@@ -26,6 +26,11 @@
             <version>${project.version}</version>
         </dependency>
         <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>elasticsearch-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
             <groupId>org.elasticsearch</groupId>
             <artifactId>elasticsearch</artifactId>
         </dependency>
@@ -40,10 +45,48 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-war-plugin</artifactId>
+                <!--                <dependencies>
+                    <dependency>
+                        <groupId>org.eclipse.jetty</groupId>
+                        <artifactId>jetty-server</artifactId>
+                        <scope>provided</scope>
+                    </dependency>
+                    <dependency>
+                        <groupId>org.eclipse.jetty</groupId>
+                        <artifactId>jetty-webapp</artifactId>
+                        <scope>provided</scope>
+                    </dependency>
+                </dependencies>-->
+                <configuration>
+                    <packagingExcludes>
+                        WEB-INF/lib/jetty-**.jar,
+                        WEB-INF/lib/javax**.jar
+                    </packagingExcludes>
+                </configuration>
             </plugin>
+            <!-- copy files from resources to be served in webapp -->
+            <!-- http://blog.sonatype.com/2008/04/how-to-share-resources-across-projects-in-maven/#.VIh4RPnF8t0 -->
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>unpack-shared-resources</id>
+                        <goals>
+                            <goal>unpack-dependencies</goal>
+                        </goals>
+                        <phase>generate-resources</phase>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/${project.build.finalName}</outputDirectory>
+                            <includeArtifacIds>common-files</includeArtifacIds>
+                            <includeGroupIds>${project.groupId}</includeGroupIds>
+                            <excludeTransitive>true</excludeTransitive>
+                            <includes>
+                                **/public**/*.*,**/public/css/*.*,**/public/js/*.*
+                            </includes>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

@@ -65,7 +65,7 @@ public abstract class ISO2JSON {
             log.error("Could not load config from file {}", configFile, e);
         }
 
-        log.debug("NEW {} based on {}", this.toString(), configFile);
+        log.info("NEW {} based on {}", this.toString(), configFile);
     }
 
     /**
@@ -158,17 +158,17 @@ public abstract class ISO2JSON {
     }
 
     @SuppressWarnings("unchecked")
-    private void createInfoToIndex(Path aSourceDirPath, Path aDestDirPath) {
+    private Path createInfoToIndex(Path aSourceDirPath, Path aDestDirPath) {
         log.info("Transforming XML in {} to JSON in {}", aSourceDirPath, aDestDirPath);
 
-        DocumentBuilder builder = null;
+        DocumentBuilder builder;
         try {
             DocumentBuilderFactory builderFactory = DocumentBuilderFactory
                     .newInstance();
             builder = builderFactory.newDocumentBuilder();
         } catch (ParserConfigurationException e) {
             log.error("Error transforming directory", e);
-            return;
+            return aDestDirPath;
         }
 
         Collection<File> inputFiles = FileUtils.listFiles(aSourceDirPath.toFile(), null, false);
@@ -181,12 +181,12 @@ public abstract class ISO2JSON {
                 JSONObject json = convert(xmlDocument);
 
                 json.writeJSONString(writer);
-                log.debug("JSON Result Object: {}", writer.toString());
+                log.trace("JSON Result Object: {}", writer.toString());
 
                 String fName = aDestDirPath + "/" + FilenameUtils.getBaseName(file.getName()) + ".json";
 
                 FileUtils.writeStringToFile(new File(fName), json.toJSONString());
-                log.info("Wrote metadata with id {} (file {}) as json to {} ", json.get(FILE_IDENTIFIER_PROPERTY), file, fName);
+                log.debug("Wrote metadata with id {} (file {}) as json to {} ", json.get(FILE_IDENTIFIER_PROPERTY), file, fName);
                 counter++;
             } catch (SAXException | IOException | XPathExpressionException e) {
                 log.error("Error transforming file {}", file, e);
@@ -194,6 +194,7 @@ public abstract class ISO2JSON {
         }
 
         log.info("Transformed {} of {} files", counter, inputFiles.size());
+        return aDestDirPath;
     }
 
     private void appendIfResultNotNull(XPath xpath, Document xml, StringBuilder sb, String expression) throws XPathExpressionException {
@@ -211,7 +212,7 @@ public abstract class ISO2JSON {
 
         String xpathFileID = "//*[local-name()='fileIdentifier']/*[local-name()='CharacterString']";
         String fileID = xPath.compile(xpathFileID).evaluate(xmlDocument);
-        log.debug(" >>> ", xpathFileID, fileID);
+        log.trace("{} >>> {}", xpathFileID, fileID);
         if (fileID != null) {
             jsonObject.put(FILE_IDENTIFIER_PROPERTY, fileID);
         }
@@ -227,7 +228,7 @@ public abstract class ISO2JSON {
             JSONObject hierarchies = parseThemeHierarchy((String) jsonObject.get(FILE_IDENTIFIER_PROPERTY), list);
             hierarchies.writeJSONString(writer);
             jsonObject.put("hierarchyNames", hierarchies);
-            log.debug(" >>> ", expression, jsonObject.get("hierarchyNames"));
+            log.trace("{} >>> {}", expression, jsonObject.get("hierarchyNames"));
         }
 
         // Get Contact info
@@ -272,7 +273,7 @@ public abstract class ISO2JSON {
         map.put("address", addressString.toString());
         map.put("email", emailString.toString());
         jsonObject.put("contact", map);
-        log.debug("contact: {}", Arrays.toString(map.entrySet().toArray()));
+        log.trace("contact: {}", Arrays.toString(map.entrySet().toArray()));
 
         // add identification info
         String abstractStr = "//*[local-name()='identificationInfo']//*[local-name()='abstract']/*[local-name()='CharacterString']";
@@ -309,14 +310,14 @@ public abstract class ISO2JSON {
         }
 
         jsonObject.put("identificationInfo", idMap);
-        log.debug("idMap: {}", idMap);
+        log.trace("idMap: {}", idMap);
 
         // get thumbnail product
         String browseThumbnailStr = "//*[local-name()='graphicOverview']//*[local-name()='MD_BrowseGraphic']//*[local-name()='fileName']//*[local-name()='CharacterString']";
         result = xPath.compile(browseThumbnailStr).evaluate(xmlDocument);
         if (result != null) {
             idMap.put("thumbnail", result.trim());
-            log.debug("thumbnail: {}", result);
+            log.trace("thumbnail: {}", result);
         }
 
         // add Geo spatial information
