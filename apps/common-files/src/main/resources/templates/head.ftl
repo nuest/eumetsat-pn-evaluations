@@ -1,7 +1,8 @@
 <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap.min.css">
 <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.1/css/bootstrap-theme.min.css">
 
-<link href="/css/pn.css" rel="stylesheet">
+<link href="${public_path}/favicon.ico" rel="shortcut icon" type="image/x-icon" />
+<link href="${public_path}/css/pn.css" rel="stylesheet">
 
 <!-- HTML5 shim and Respond.js IE8 support of HTML5 elements and media queries -->
 <!--[if lt IE 9]>
@@ -13,4 +14,4 @@
 
 <script src="//maxcdn.bootstrapcdn.com/bootstrap/3.3.1/js/bootstrap.min.js"></script>
 
-<script src="/js/pn.js"></script>
+<script src="${public_path}/js/pn.js"></script>

@@ -54,7 +54,11 @@ public class SolrApp extends AbstractApp {
     private SolrServer server;
 
     public SolrApp() {
-        super();
+        this(false);
+    }
+
+    public SolrApp(boolean servletContainer) {
+        super(servletContainer);
     }
 
     public SolrApp(SolrServer server) {
@@ -135,6 +139,12 @@ public class SolrApp extends AbstractApp {
     }
 
     public static void main(String[] args) throws SolrServerException, IOException, URISyntaxException {
+        YamlNode n;
+        try (InputStream fis = ISO2JSON.class.getResourceAsStream("/app.yml")) {
+            n = new Yaml().load(fis);
+        }
+        YamlNode conf = n.get("solr");
+
         /*
          YamlNode n;
          try (InputStream fis = ISO2JSON.class.getResourceAsStream("/feederconfig.yml")) {
@@ -161,20 +171,25 @@ public class SolrApp extends AbstractApp {
          log.error("Error feeding to ES", e);
          }
          */
-
-        try {
-            SolrFeeder feeder = new SolrFeeder();
-            feeder.transformAndIndex();
-        } catch (IOException e) {
-            log.error("Error feeding to ES", e);
+        if (conf.get("feedOnStart").booleanValue()) {
+            try {
+                SolrFeeder feeder = new SolrFeeder();
+                feeder.transformAndIndex();
+            } catch (IOException e) {
+                log.error("Error feeding to ES", e);
+            }
         }
 
         // ISSUE 1: the embedded Solr server does not expose an HTTP interface
 //        SolrApp app = new SolrApp(server);
-        
         // ISSUE 2: Version conflict between Jetty of Sparkjava and Jetty of Solr
-        
         SolrApp app = new SolrApp();
         app.run();
+    }
+
+    @Override
+    protected void feed() throws IOException {
+        SolrFeeder feeder = new SolrFeeder();
+        feeder.transformAndIndex();
     }
 }

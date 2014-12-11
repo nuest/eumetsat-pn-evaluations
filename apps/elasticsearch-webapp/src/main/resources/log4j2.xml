@@ -19,6 +19,10 @@
             <AppenderRef ref="Console"/>
             <AppenderRef ref="asyncFile"/>
         </Logger>
+        <Logger name="spark" level="WARN" additivity="false">
+            <AppenderRef ref="Console"/>
+            <AppenderRef ref="asyncFile"/>
+        </Logger>
         <Root level="ERROR">
             <AppenderRef ref="Console"/>
         </Root>

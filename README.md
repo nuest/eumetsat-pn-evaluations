@@ -116,6 +116,26 @@ To help comparability, we try to stick to default values where possible.
 
 ...
 
+## Run in a servlet container
+
+Build the webapp with the profile `warfile` and copy the created `.war`-file to the servlet container, such as Tomcat.
+
+Also set the name of the web application in the configuration file `app.yml`.
+
+```
+cd <project dir>/apps/{elasticsearch, solr}-webapp
+mvn clean install -P warfile
+```
+
 ## Run standalone
 
-An alternative to runnng from Java or in a servlet container is to create an executable jar, see [Step 11 of this tutorial](https://blog.openshift.com/developing-single-page-web-applications-using-java-8-spark-mongodb-and-angularjs/).
+An alternative to running from Java or in a servlet container is to create an executable jar, see [Step 11 of this tutorial](https://blog.openshift.com/developing-single-page-web-applications-using-java-8-spark-mongodb-and-angularjs/).
+
+To create a standalone uber-jar for the Elasticsearch webapp:
+
+```
+cd <project dir>/apps/{elasticsearch, solr}-webapp
+mvn clean install -P standalone
+```
+
+To run it open a command line, navigate to the directory of the created jar file and execute ``java -jar target/{elasticsearch, solr}-webapp-<version>.jar``.

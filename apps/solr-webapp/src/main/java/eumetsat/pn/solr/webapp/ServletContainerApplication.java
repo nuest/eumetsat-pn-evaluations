@@ -3,7 +3,7 @@
  * To change this template file, choose Tools | Templates
  * and open the template in the editor.
  */
-package eumetsat.pn.elasticsearch.webapp;
+package eumetsat.pn.solr.webapp;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,7 +21,7 @@ public class ServletContainerApplication implements SparkApplication {
     public void init() {
         log.info("Initializing...");
         
-        ElasticsearchApp app = new ElasticsearchApp(true);
+        SolrApp app = new SolrApp(true);
         app.run();
         
         log.info("Initialized: {}", app);

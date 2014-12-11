@@ -14,12 +14,8 @@ import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.MalformedURLException;
-import java.net.URISyntaxException;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.logging.Level;
 import org.json.simple.parser.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,11 +37,13 @@ public abstract class AbstractApp {
 
     private static final String DEFAULT_CONFIG_FILE = "/app.yml";
 
-    protected static final String PRODUCT_DESCRIPTION_ROUTE = "/product_description";
+    protected String productDescriptionRoute = "/product_description";
 
-    protected static final String SEARCH_ROUTE = "/search";
+    protected String searchRoute = "/search";
+       
+    protected static final String PUBLIC_ROUTE = "public";
 
-    protected static final String SEARCH_RESULTS_ROUTE = SEARCH_ROUTE + "/results";
+    protected String searchResultsRoute = searchRoute + "/results";
 
     //Static immutable map to create a translation table between the facets and the name displayed on screen to users
     //TODO to externalize in a config file
@@ -67,12 +65,24 @@ public abstract class AbstractApp {
     protected final String productEndpointUrlString;
     protected YamlNode config;
     private String MESSAGES_ENTRY = "user_messages";
+    private final boolean servletContainer;
+    private final String path;
 
     public AbstractApp() {
-        this(DEFAULT_CONFIG_FILE);
+        this(false, DEFAULT_CONFIG_FILE);
+    }
+
+    public AbstractApp(boolean servletContainer) {
+        this(servletContainer, DEFAULT_CONFIG_FILE);
     }
 
     public AbstractApp(String configFile) {
+        this(false, configFile);
+    }
+
+    public AbstractApp(boolean servletContainer, String configFile) {
+        this.servletContainer = servletContainer;
+
         try (InputStream fis = getClass().getResourceAsStream(configFile)) {
             YamlNode n = new Yaml().load(fis);
             this.config = n.get(getConfigBasename()).get("app");
@@ -90,8 +100,9 @@ public abstract class AbstractApp {
         this.productEndpointUrlString = this.searchEndpointBaseUrl + paths.get("productinfo").asTextValue();
         this.name = this.config.get("name").asTextValue();
         this.port = this.config.get("port").asIntValue(4567);
+        this.path = this.config.get("path").asTextValue("");
 
-        log.info("NEW app '{}' based on {}", this.name, configFile);
+        log.info("NEW app '{}' based on {}: \n\t\t{}", this.name, configFile, this.toString());
     }
 
     protected abstract String getConfigBasename();
@@ -137,13 +148,24 @@ public abstract class AbstractApp {
      *
      * @param id Id of the product
      * @return a map for the template engine
+     * @throws java.net.MalformedURLException
+     * @throws org.json.simple.parser.ParseException
      */
     protected abstract Map<String, Object> describeProduct(String id) throws MalformedURLException, ParseException;
 
+    /**
+     *
+     * @throws IOException
+     */
+    protected abstract void feed() throws IOException;
+
     public Map<String, Object> addGlobalAttributes(Map<String, Object> attributes) {
-        attributes.put("search_endpoint", SEARCH_RESULTS_ROUTE);
+        attributes.put("search_endpoint", servletContainer ? "/" + path + searchResultsRoute : searchResultsRoute);
+        attributes.put("description_endpoint", servletContainer ? "/" + path + productDescriptionRoute : productDescriptionRoute);
         attributes.put("engine", name);
         attributes.put("elem_per_page", ELEM_PER_PAGE);
+        attributes.put("path",  servletContainer ? "/" + path : "");
+        attributes.put("public_path",  servletContainer ? "/" + path + "/" + PUBLIC_ROUTE : "");
         return attributes;
     }
 
@@ -167,22 +189,17 @@ public abstract class AbstractApp {
     }
 
     public void run() {
-//        Path publicDir;
-//        try {
-//            publicDir = Paths.get(AbstractApp.class.getResource("/public").toURI());
-//        } catch (URISyntaxException e) {
-//            log.error("Error resolving public dir path", e);
-//            return;
-//        }
-//        log.info("Setting public file location to {}", publicDir.toAbsolutePath());
-//        Spark.staticFileLocation(publicDir.toAbsolutePath().toString());
-        
-        Spark.staticFileLocation("public");
-        Spark.port(this.port);
+        if (servletContainer) {
+            log.info("Running in servlet container, not configuring port, webapp path is {}", this.path);
+        } else {
+            log.info("Running standalone, configuring port to {}", this.port);
+            Spark.staticFileLocation(PUBLIC_ROUTE);
+            Spark.port(this.port);
+        }
 
         TemplateEngine engine = new FreeMarkerTemplateEngine(cfg);
 
-        Spark.get(SEARCH_ROUTE, new TemplateViewRoute() {
+        Spark.get(searchRoute, new TemplateViewRoute() {
 
             @Override
             public ModelAndView handle(Request request, Response response) {
@@ -203,7 +220,7 @@ public abstract class AbstractApp {
             }
         }, engine);
 
-        Spark.get(SEARCH_RESULTS_ROUTE, new TemplateViewRoute() {
+        Spark.get(searchResultsRoute, new TemplateViewRoute() {
 
             @Override
             public ModelAndView handle(Request request, Response response) {
@@ -241,7 +258,7 @@ public abstract class AbstractApp {
             }
         }, engine);
 
-        Spark.get(PRODUCT_DESCRIPTION_ROUTE, new TemplateViewRoute() {
+        Spark.get(productDescriptionRoute, new TemplateViewRoute() {
 
             @Override
             public ModelAndView handle(Request request, Response response) {
@@ -257,11 +274,7 @@ public abstract class AbstractApp {
                     mav = new ModelAndView(attributes, "/templates/product_description.ftl");
                 } catch (RuntimeException | MalformedURLException | ParseException e) {
                     log.error("Error during product description page.", e);
-                    // TODO return error view
-                    StringWriter errors = new StringWriter();
-                    e.printStackTrace(new PrintWriter(errors));
-                    String str = errors.toString();
-                    Spark.halt(401, "Error while returning responses: \n{}" + str);
+                    errorResponse(e);
                 }
                 return mav;
             }
@@ -270,11 +283,49 @@ public abstract class AbstractApp {
         Spark.get("/", new Route() {
             @Override
             public Object handle(Request request, Response response) {
-                log.trace("Handle base request > redirect!");
-                response.redirect("/search");
+                String destination = servletContainer ? "/" + path + searchRoute : searchRoute;
+                log.trace("Handle base request > redirect to {}!", destination);
+                response.redirect(destination);
                 return null;
             }
         });
+
+        Spark.get("/feed", new Route() {
+            @Override
+            public Object handle(Request request, Response response) {
+                log.info("Starting feeding!");
+
+                try {
+                    feed();
+                } catch (IOException e) {
+                    log.error("Error during feeding", e);
+                    errorResponse(e);
+                }
+
+                log.info("Done with feeding.");
+
+                response.redirect(searchRoute);
+                return null;
+            }
+
+        });
+    }
+
+    protected void errorResponse(IOException e) {
+        // TODO return error view
+        StringWriter errors = new StringWriter();
+        e.printStackTrace(new PrintWriter(errors));
+        String str = errors.toString();
+        Spark.halt(401, "Error while returning responses: \n{}" + str);
+    }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("AbstractApp [servletContainer = ").append(this.servletContainer);
+        sb.append(", path = ").append(this.path);
+        sb.append(", searchRoute = ").append(this.searchRoute).append("]");
+        return sb.toString();
     }
 
 }

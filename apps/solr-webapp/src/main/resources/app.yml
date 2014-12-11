@@ -8,6 +8,9 @@ solr:
                 search: _search
                 productinfo: eumetsat-catalogue/product/
         name: Solr
+        # must match webapp name in servlet container:
+        path: solr
+    feedOnStart: false
     #embedded:
     #    xml: solr.xml
     #    home: /

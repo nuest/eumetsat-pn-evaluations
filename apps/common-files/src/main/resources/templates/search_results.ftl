@@ -90,7 +90,7 @@
             <div class="col-md-10">
                 <#if total_hits?? && elapsed??>
                     <p class="text-muted">
-                        <small>About ${total_hits} results (${elapsed} milliseconds)</small>
+                        <small>${total_hits} results (in ${elapsed} milliseconds)</small>
                     </p>
                 </#if>
             </div>
@@ -122,7 +122,7 @@
                     <ul>
                     <#list hits as hit>
                         <li>
-                            <h5><a href="/product_description?id=${hit.id}">${hit.title}</a>&nbsp<#if hit.status?? && hit.status != ""><span class="badge">${hit.status}</span></#if></h5>
+                            <h5><a href="${description_endpoint}?id=${hit.id}">${hit.title}</a>&nbsp<#if hit.status?? && hit.status != ""><span class="badge">${hit.status}</span></#if></h5>
                             <p class="text-justify">${hit.abstract}</p>
                             <p class="text-muted"><small>score: ${hit.score} | Keywords: ${hit.keywords}</small></p>
                             <#if hit.thumbnail?? && hit.thumbnail != "">
