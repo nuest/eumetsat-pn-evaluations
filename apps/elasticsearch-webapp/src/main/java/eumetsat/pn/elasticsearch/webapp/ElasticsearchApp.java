@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -79,7 +80,22 @@ public class ElasticsearchApp extends AbstractApp {
 
         data.put("id", id);
         data.put("title", identificationInfo.get("title"));
-        data.put("abstract", identificationInfo.get("abstract"));
+        if (identificationInfo.containsKey("keywords")) {
+            data.put("abstract", identificationInfo.get("abstract"));
+        }
+        if (identificationInfo.containsKey("keywords")) {
+            JSONArray keywords = (JSONArray) identificationInfo.get("keywords");
+            data.put("keywords", Joiner.on(", ").join(keywords.iterator()));
+        }
+        if (identificationInfo.containsKey("thumbnail")) {
+            data.put("thumbnail", identificationInfo.get("thumbnail").toString());
+        }
+        if (identificationInfo.containsKey("status")) {
+            data.put("status", identificationInfo.get("status").toString());
+        }
+        if (identificationInfo.containsKey("satellite")) {
+            data.put("satellite", identificationInfo.get("satellite").toString());
+        }
 
         return data;
     }
@@ -172,9 +188,9 @@ public class ElasticsearchApp extends AbstractApp {
                 + "                  \"fields\" : { \"identificationInfo.title\": {\"fragment_size\" : " + lengthOfTitle + ", \"number_of_fragments\" : 1}, "
                 + "                                 \"identificationInfo.abstract\": {\"fragment_size\" : " + lengthOfAbstract + ", \"number_of_fragments\" : 1} } } , "
                 + // request facets to refine search (here the maximum number of facets can be configured)
-                " \"facets\" :   { \"satellites\": { \"terms\" : { \"field\" : \"hierarchyNames.satellite\", \"size\":4 } }, "
-                + "                  \"instruments\": { \"terms\" : { \"field\" : \"hierarchyNames.instrument\", \"size\":4  } }, "
-                + "                  \"categories\": { \"terms\" : { \"field\" : \"hierarchyNames.category\", \"size\":10 } }, "
+                " \"facets\" :   { \"satellites\": { \"terms\" : { \"field\" : \"hierarchyNames.satellite\", \"size\":5 } }, "
+                + "                  \"instruments\": { \"terms\" : { \"field\" : \"hierarchyNames.instrument\", \"size\":5  } }, "
+                + "                  \"categories\": { \"terms\" : { \"field\" : \"hierarchyNames.category\", \"size\": 5 } }, "
                 + "                  \"societal Benefit Area\": { \"terms\" : { \"field\" : \"hierarchyNames.societalBenefitArea\", \"size\":5 } }, "
                 + "                  \"distribution\": { \"terms\" : { \"field\" : \"hierarchyNames.distribution\", \"size\":5 } } "
                 + "                },"
@@ -282,11 +298,11 @@ public class ElasticsearchApp extends AbstractApp {
 
     public static void main(String[] args) {
 //        startAndFeedEmbedded();
-        
+
         ElasticsearchApp app = new ElasticsearchApp();
         app.run();
     }
-    
+
     private static void startAndFeedEmbedded() {
         log.info("Starting embedded Elasticsearch...");
         // http://blog.trifork.com/2012/09/13/elasticsearch-beyond-big-data-running-elasticsearch-embedded/

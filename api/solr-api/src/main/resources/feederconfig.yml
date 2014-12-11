@@ -10,6 +10,5 @@ solr:
             #type: product
         # set this to false to not send documents to index
         index: true
-        
-
+        #limit: 10
 ...

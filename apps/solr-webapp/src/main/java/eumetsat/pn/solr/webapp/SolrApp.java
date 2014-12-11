@@ -84,7 +84,7 @@ public class SolrApp extends AbstractApp {
         SolrQuery query = new SolrQuery();
         query.setRequestHandler(productEndpointUrlString);
         query.set("id", id);
-        query.setFields("id", "title", "description");
+        query.setFields("*");
         log.trace("Solr query: {}", query);
 
         try {
@@ -96,6 +96,16 @@ public class SolrApp extends AbstractApp {
             data.put("id", result.getFieldValue("id"));
             data.put("title", result.getFieldValue("title"));
             data.put("abstract", result.getFieldValue("description"));
+            if (result.getFieldValue("thumbnail_s") != null) {
+                data.put("thumbnail", result.getFieldValue("thumbnail_s"));
+            }
+            if (result.getFieldValue("status_s") != null) {
+                data.put("status", result.getFieldValue("status_s"));
+            }
+            if (result.getFieldValue("satellite_s") != null) {
+                data.put("satellite", result.get("satellite_s"));
+            }
+            data.put("keywords", Joiner.on(", ").join((Collection<String>) result.get("keywords")));
         } catch (SolrServerException e) {
             log.error("Error querying Solr", e);
             errorResponse(e);

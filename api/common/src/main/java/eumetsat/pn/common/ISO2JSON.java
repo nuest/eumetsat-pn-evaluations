@@ -192,7 +192,7 @@ public abstract class ISO2JSON {
                 log.error("Error transforming file {}", file, e);
             }
 
-            if (counter > limit) {
+            if (counter >= limit) {
                 log.warn("Stopping indexing because of limit {}", limit);
                 break;
             }
@@ -378,7 +378,11 @@ public abstract class ISO2JSON {
 
     public void transformAndIndex() throws IOException {
         Path tempdir = Files.createTempDirectory(config.get("tempdirnameprefix").asTextValue());
-        createInfoToIndex(Paths.get(config.get("srcdir").asTextValue()), tempdir, config.get("limit").asLongValue(Long.MAX_VALUE));
+        if (config.has("limit")) {
+            createInfoToIndex(Paths.get(config.get("srcdir").asTextValue()), tempdir, config.get("limit").asLongValue(Long.MAX_VALUE));
+        } else {
+            createInfoToIndex(Paths.get(config.get("srcdir").asTextValue()), tempdir, Long.MAX_VALUE);
+        }
 
         if (config.get("index").asBooleanValue(true)) {
             indexDirContent(tempdir);
