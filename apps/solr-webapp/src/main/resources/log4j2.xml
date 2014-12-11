@@ -21,11 +21,12 @@
         </Logger>
         <Logger name="org.apache.solr" level="WARN" additivity="false">
             <AppenderRef ref="Console"/>
-            <AppenderRef ref="asyncFile"/>
         </Logger>
         <Logger name="spark" level="WARN" additivity="false">
             <AppenderRef ref="Console"/>
-            <AppenderRef ref="asyncFile"/>
+        </Logger>
+        <Logger name="org.eclipse.jetty" level="WARN" additivity="false">
+            <AppenderRef ref="Console"/>
         </Logger>
         <Root level="DEBUG">
             <AppenderRef ref="Console"/>
