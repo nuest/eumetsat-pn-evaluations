@@ -60,7 +60,7 @@ public class SolrApp extends AbstractApp {
     }
 
     public SolrApp(boolean servletContainer, String configFile) {
-        super(false, configFile);
+        super(servletContainer, configFile);
 
         String coll = config.get("searchendpoint").get("collection").asTextValue();
         solrServerEndpoint = searchEndpointBaseUrl + coll;
@@ -152,7 +152,7 @@ public class SolrApp extends AbstractApp {
                         resHit.put("title", result.get("title"));
                         resHit.put("keywords", Joiner.on(", ").join((Collection<String>) result.get("keywords")));
                         resHit.put("satellite", result.get("satellite_s"));
-                        resHit.put("thumbnail", result.get("thubmnail_s"));
+                        resHit.put("thumbnail", result.get("thumbnail_s"));
                         resHit.put("status", result.get("status_s"));
 
                         resHits.add(resHit);
