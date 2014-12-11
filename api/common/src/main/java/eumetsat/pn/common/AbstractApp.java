@@ -35,7 +35,7 @@ public abstract class AbstractApp {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractApp.class);
 
-    private static final String DEFAULT_CONFIG_FILE = "/app.yml";
+    protected static final String DEFAULT_CONFIG_FILE = "/app.yml";
 
     protected String productDescriptionRoute = "/product_description";
 
@@ -60,9 +60,9 @@ public abstract class AbstractApp {
     protected Configuration cfg;
     protected String searchEndpointUrlString;
     protected int port;
-    protected final String name;
-    protected final String searchEndpointBaseUrl;
-    protected final String productEndpointUrlString;
+    protected String name;
+    protected String searchEndpointBaseUrl;
+    protected String productEndpointUrlString;
     protected YamlNode config;
     private String MESSAGES_ENTRY = "user_messages";
     private final boolean servletContainer;
@@ -96,7 +96,7 @@ public abstract class AbstractApp {
         YamlNode searchEndpoint = config.get("searchendpoint");
         this.searchEndpointBaseUrl = searchEndpoint.get("url").asTextValue();
         YamlNode paths = searchEndpoint.get("paths");
-        this.searchEndpointUrlString = this.searchEndpointBaseUrl + paths.get("search").asTextValue();
+        this.searchEndpointUrlString = this.searchEndpointBaseUrl + paths.get("search").asTextValue("");
         this.productEndpointUrlString = this.searchEndpointBaseUrl + paths.get("productinfo").asTextValue();
         this.name = this.config.get("name").asTextValue();
         this.port = this.config.get("port").asIntValue(4567);
@@ -311,12 +311,12 @@ public abstract class AbstractApp {
         });
     }
 
-    protected void errorResponse(IOException e) {
+    protected void errorResponse(Exception e) {
         // TODO return error view
         StringWriter errors = new StringWriter();
         e.printStackTrace(new PrintWriter(errors));
         String str = errors.toString();
-        Spark.halt(401, "Error while returning responses: \n{}" + str);
+        Spark.halt(401, "Error while returning responses: \n\n\n" + str);
     }
 
     @Override

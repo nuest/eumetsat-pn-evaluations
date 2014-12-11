@@ -212,10 +212,11 @@ public class ElasticsearchApp extends AbstractApp {
                     return data;
                 }
 
-                data.put("total_hits", ((Map<?, ?>) jsObj.get("hits")).get("total"));
+                Long hitcount = (Long) ((Map<?, ?>) jsObj.get("hits")).get("total");
+                data.put("total_hits", hitcount);
 
                 // compute the pagination information to create the pagination bar
-                Map<String, Object> pagination = computePaginationParams(((Long) (data.get("total_hits"))).intValue(), from);
+                Map<String, Object> pagination = computePaginationParams(hitcount.intValue(), from);
                 data.put("pagination", pagination);
 
                 @SuppressWarnings("unchecked")

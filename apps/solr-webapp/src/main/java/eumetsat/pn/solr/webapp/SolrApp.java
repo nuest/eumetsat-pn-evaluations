@@ -7,6 +7,7 @@ package eumetsat.pn.solr.webapp;
 
 import com.github.autermann.yaml.Yaml;
 import com.github.autermann.yaml.YamlNode;
+import com.google.common.base.Joiner;
 import eumetsat.pn.common.AbstractApp;
 import com.google.common.base.Stopwatch;
 import eumetsat.pn.common.ISO2JSON;
@@ -17,12 +18,19 @@ import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServer;
 import org.apache.solr.client.solrj.SolrServerException;
+import org.apache.solr.client.solrj.impl.HttpSolrServer;
+import org.apache.solr.client.solrj.response.QueryResponse;
+import org.apache.solr.common.SolrDocument;
+import org.apache.solr.common.SolrDocumentList;
 import org.json.simple.parser.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,84 +43,136 @@ import org.slf4j.LoggerFactory;
 public class SolrApp extends AbstractApp {
 
     private static final Logger log = LoggerFactory.getLogger(SolrApp.class);
-    private SolrServer server;
+
+    private String solrServerEndpoint;
+    private final HttpSolrServer solr;
 
     public SolrApp() {
         this(false);
     }
 
     public SolrApp(boolean servletContainer) {
-        super(servletContainer);
-    }
-
-    public SolrApp(SolrServer server) {
-        super();
-        this.server = server;
+        this(servletContainer, DEFAULT_CONFIG_FILE);
     }
 
     public SolrApp(String configFile) {
-        super(configFile);
+        this(false, configFile);
+    }
+
+    public SolrApp(boolean servletContainer, String configFile) {
+        super(false, configFile);
+
+        String coll = config.get("searchendpoint").get("collection").asTextValue();
+        solrServerEndpoint = searchEndpointBaseUrl + coll;
+        productEndpointUrlString = config.get("searchendpoint").get("paths").get("productinfo").asTextValue();
+
+        solr = new HttpSolrServer(solrServerEndpoint);
+        try {
+            log.debug("Solr server: {} | ping: {} / {}", solr, solr.ping().getStatus(), solr.ping().getResponse().get("status"));
+        } catch (SolrServerException | IOException e) {
+            log.error("Could not connect to Solr", e);
+        }
+
+        log.info("NEW {}", this.toString());
     }
 
     @Override
     protected Map<String, Object> describeProduct(String id) throws MalformedURLException, ParseException {
         Map<String, Object> data = new HashMap<>();
+        //URL url = new URL(this.productEndpointUrlString + "?" + id);
 
-        //create the url with the id passed in argument
-        URL url = new URL(this.productEndpointUrlString + id);
+        SolrQuery query = new SolrQuery();
+        query.setRequestHandler(productEndpointUrlString);
+        query.set("id", id);
+        query.setFields("id", "title", "description");
+        log.trace("Solr query: {}", query);
 
-        HashMap<String, String> headers = new HashMap<>();
-        HashMap<String, String> params = new HashMap<>();
-        String body = null;
-        boolean debug = true;
+        try {
+            QueryResponse response = solr.query(query);
 
-//        WebResponse response = rClient.doGetRequest(url, headers, params,
-//                body, debug);
-//        log.trace("response = " + response);
-//
-//        JSONParser parser = new JSONParser();
-//
-//        JSONObject jsObj = (JSONObject) parser.parse(response.body);
-//
-//        Map<String, Object> identificationInfo = ((Map<String, Object>) (((Map<String, Object>) jsObj.get("_source")).get("identificationInfo")));
-        data.put("id", id);
-//        data.put("title", identificationInfo.get("title"));
-//        data.put("abstract", identificationInfo.get("abstract"));
+            SolrDocument result = (SolrDocument) response.getResponse().get("doc");
+            log.trace("Result document: {}", result);
 
+            data.put("id", result.getFieldValue("id"));
+            data.put("title", result.getFieldValue("title"));
+            data.put("abstract", result.getFieldValue("description"));
+        } catch (SolrServerException e) {
+            log.error("Error querying Solr", e);
+            errorResponse(e);
+        }
         return data;
     }
 
     @Override
-    protected Map<String, Object> search(String searchTerms, String filterString, int from, int size) {
+    protected Map<String, Object> search(String searchTerms, String filterString, int from, int size
+    ) {
         Map<String, Object> data = new HashMap<>();
         // put "session" parameters here rightaway so it can be used in template even when empty result
         data.put("search_terms", searchTerms);
         data.put("filter_terms", filterString);
 
-        URL url;
-        try {
-            url = new URL(searchEndpointUrlString);
-        } catch (MalformedURLException e) {
-            log.error("Search enpoint URL malformed: {}", e.getMessage());
-            addMessage(data, MessageLevel.danger, "Search endpoint URL is malformed: " + e.getMessage());
-            return data;
-        }
-
         HashMap<String, String> headers = new HashMap<>();
         HashMap<String, String> params = new HashMap<>();
 
-        List<Map<String, String>> resHits = new ArrayList<>();
+        try {
+            SolrQuery query = new SolrQuery();
 
-        log.trace("solr: {}", "...");
+            query.setQuery(searchTerms);
+            query.setStart(from);
+            query.setRows(size);
+            query.setFields("*", "score");
 
-        //measure elapsed time
-        Stopwatch stopwatch = Stopwatch.createStarted();
+            log.trace("Solr query: {}", query);
+            Stopwatch stopwatch = Stopwatch.createStarted();
+            QueryResponse response = solr.query(query);
 
-        // query Solr
-        // transform JSON to data map for template engine
-        stopwatch.stop();
+            if (response == null) {
+                log.error("Response from {} is null!", this.name);
+                data.put("total_hits", 0);
+                data = addMessage(data, MessageLevel.danger, "Response is null from " + this.name);
+            } else {
+                log.trace("Got response: {}", response);
 
-        data.put("elapsed", (double) (stopwatch.elapsed(TimeUnit.MILLISECONDS)) / (double) 1000);
+                if (response.getStatus() == 0) {
+                    List<Map<String, Object>> resHits = new ArrayList<>();
+                    SolrDocumentList results = response.getResults();
+
+                    data.put("total_hits", results.getNumFound());
+                    data.put("max_score", results.getMaxScore());
+                    Map<String, Object> pagination = computePaginationParams(((Long) (data.get("total_hits"))).intValue(), from);
+                    data.put("pagination", pagination);
+
+                    for (SolrDocument result : results) {
+                        HashMap<String, Object> resHit = new HashMap<>();
+
+                        resHit.put("id", result.getFieldValue("id"));
+                        resHit.put("score", String.format("%.4g", result.getFieldValue("score")));
+
+                        resHit.put("abstract", result.get("description"));
+                        resHit.put("title", result.get("title"));
+                        resHit.put("keywords", Joiner.on(", ").join((Collection<String>) result.get("keywords")));
+                        resHit.put("satellite", result.get("satellite_s"));
+                        resHit.put("thumbnail", result.get("thubmnail_s"));
+                        resHit.put("status", result.get("status_s"));
+
+                        resHits.add(resHit);
+                    }
+
+                    data.put("hits", resHits);
+                } else { // non-OK resonse
+                    log.error("Received non-200 response: {}", response);
+                    data = addMessage(data, MessageLevel.danger, "Non 200 response: " + response.toString());
+                }
+            }
+
+            stopwatch.stop();
+
+            data.put("elapsed", (double) (stopwatch.elapsed(TimeUnit.MILLISECONDS)) / (double) 1000);
+            log.trace("Prepared data for template: {}", data);
+        } catch (SolrServerException e) {
+            log.error("Error querying Solr", e);
+            errorResponse(e);
+        }
 
         return data;
     }
@@ -124,7 +184,9 @@ public class SolrApp extends AbstractApp {
 
     public static void main(String[] args) throws SolrServerException, IOException, URISyntaxException {
         YamlNode n;
-        try (InputStream fis = ISO2JSON.class.getResourceAsStream("/app.yml")) {
+
+        try (InputStream fis = ISO2JSON.class
+                .getResourceAsStream("/app.yml")) {
             n = new Yaml().load(fis);
         }
         YamlNode conf = n.get("solr");
@@ -176,4 +238,13 @@ public class SolrApp extends AbstractApp {
         SolrFeeder feeder = new SolrFeeder();
         feeder.transformAndIndex();
     }
+
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append("SolrApp [solr endpoint = ").append(this.solrServerEndpoint);
+        sb.append("]");
+        return sb.toString();
+    }
+
 }

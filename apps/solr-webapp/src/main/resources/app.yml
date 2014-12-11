@@ -3,10 +3,11 @@ solr:
     app:
         port: 5678
         searchendpoint:
-            url: http://localhost:1234/
+            url: http://localhost:8983/solr/
+            collection: eumetsat
             paths:
-                search: _search
-                productinfo: eumetsat-catalogue/product/
+                search: /query
+                productinfo: /get
         name: Solr
         # must match webapp name in servlet container:
         path: solr
