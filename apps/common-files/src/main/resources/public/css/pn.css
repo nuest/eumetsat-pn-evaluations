@@ -24,10 +24,6 @@ body {
     cursor: pointer;
 }
 
-#resultlist ul {
-    list-style-type: none;
-}
-
 #resultlist li {
     border-bottom: 1px #eeeeee solid;
 }

@@ -171,17 +171,17 @@ public class SolrFeeder extends ISO2JSON {
             input.addField("instrument_s", hierarchy.get("instrument"));
         }
 
-        JSONArray categories = (JSONArray) info.get("category");
+        JSONArray categories = (JSONArray) hierarchy.get("category");
         if (categories != null && !categories.isEmpty()) {
             input.addField("category", categories);
         }
 
-        JSONArray sbas = (JSONArray) info.get("societalBenefitArea");
+        JSONArray sbas = (JSONArray) hierarchy.get("societalBenefitArea");
         if (sbas != null && !sbas.isEmpty()) {
             input.addField("societalBenefitArea_ss", sbas);
         }
 
-        Collection<String> distrs = (Collection<String>) info.get("distribution");
+        Collection<String> distrs = (Collection<String>) hierarchy.get("distribution");
         if (distrs != null && !distrs.isEmpty()) {
             input.addField("distribution_ss", distrs);
         }

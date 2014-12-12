@@ -10,6 +10,7 @@ import com.github.autermann.yaml.YamlNode;
 import com.google.common.base.Joiner;
 import eumetsat.pn.common.AbstractApp;
 import com.google.common.base.Stopwatch;
+import com.google.common.collect.Multimap;
 import eumetsat.pn.common.ISO2JSON;
 import eumetsat.pn.common.util.SimpleRestClient;
 import eumetsat.pn.solr.SolrFeeder;
@@ -21,15 +22,20 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.HttpSolrServer;
+import org.apache.solr.client.solrj.response.FacetField;
+import org.apache.solr.client.solrj.response.FacetField.Count;
 import org.apache.solr.client.solrj.response.QueryResponse;
 import org.apache.solr.common.SolrDocument;
 import org.apache.solr.common.SolrDocumentList;
+import org.json.simple.JSONObject;
 import org.json.simple.parser.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -95,7 +101,7 @@ public class SolrApp extends AbstractApp {
             data.put("id", result.getFieldValue("id"));
             data.put("title", result.getFieldValue("title"));
             data.put("abstract", result.getFieldValue("description"));
-            
+
             if (result.getFieldValue("thumbnail_s") != null) {
                 data.put("thumbnail", result.getFieldValue("thumbnail_s"));
             }
@@ -137,12 +143,11 @@ public class SolrApp extends AbstractApp {
     }
 
     @Override
-    protected Map<String, Object> search(String searchTerms, String filterString, int from, int size
-    ) {
+    protected Map<String, Object> search(String searchTerms, String filterString, int from, int size) {
         Map<String, Object> data = new HashMap<>();
         // put "session" parameters here rightaway so it can be used in template even when empty result
-        data.put("search_terms", searchTerms);
-        data.put("filter_terms", filterString);
+        data.put("search_terms", searchTerms == null ? "*:*" : searchTerms);
+        data.put("filter_terms", filterString == null ? "" : filterString);
 
         HashMap<String, String> headers = new HashMap<>();
         HashMap<String, String> params = new HashMap<>();
@@ -151,9 +156,13 @@ public class SolrApp extends AbstractApp {
             SolrQuery query = new SolrQuery();
 
             query.setQuery(searchTerms);
-            query.setStart(from);
+            query.setStart(from == -1 ? 0 : from);
             query.setRows(size);
             query.setFields("*", "score");
+            query.setParam("qt", "edismax"); // probably default already
+            
+            // boosting
+            query.setParam("qf", "title^10 description status^2 keywords");
 
             // set highlight, see also https://cwiki.apache.org/confluence/display/solr/Standard+Highlighter
             query.setHighlight(true).setHighlightSnippets(17).setHighlightFragsize(0); // http://wiki.apache.org/solr/HighlightingParameters
@@ -163,7 +172,28 @@ public class SolrApp extends AbstractApp {
             query.setParam("hl.simple.pre", "<em><strong>");
             query.setParam("hl.simple.post", "</strong></em>");
 
-            log.trace("Solr query: {}", query);
+            // configure faceting, see also http://wiki.apache.org/solr/SolrFacetingOverview and http://wiki.apache.org/solr/Solrj and https://wiki.apache.org/solr/SimpleFacetParameters and 
+            query.setFacet(true).setFacetLimit(4).setFacetMissing(true);
+            // not in API, probably normally set in schema.xml:
+            query.setParam("facet.field", "satellite_s", "instrument_s", "category", "societalBenefitArea_ss", "distribution_ss");
+
+            // filtering
+            Set<String> hiddenFacets = new HashSet<>(); // hiding no facets yet
+            if (filterString != null && !filterString.isEmpty()) {
+                Multimap<String, String> filterTermsMap = parseFiltersTerms(filterString);
+
+                if (filterTermsMap.size() > 0) {
+                    for (Map.Entry<String, String> entry : filterTermsMap.entries()) {
+                        String filter = " +" + entry.getKey() + ":" + entry.getValue();
+                        query.addFilterQuery(filter);
+
+                        hiddenFacets.add(entry.getKey() + ":" + entry.getValue());
+                    }
+                }
+            }
+            data.put("tohide", hiddenFacets);
+
+            log.debug("Solr query: {}", query);
             Stopwatch stopwatch = Stopwatch.createStarted();
             QueryResponse response = solr.query(query);
 
@@ -205,6 +235,30 @@ public class SolrApp extends AbstractApp {
                     }
 
                     data.put("hits", resHits);
+
+                    // faceting information:
+                    List<FacetField> facets = response.getFacetFields();
+                    log.trace("Facets ({}): {}", facets.size(), facets);
+
+                    //jsObj.get("facets").get("categories").get("terms") - then term und count
+                    // convert to format of Elasticsearch:
+                    Map<String, Object> facetsJson = new HashMap<>();
+                    for (FacetField facet : facets) {
+                        Map<String, Object> facetMap = new HashMap<>();
+                        facetMap.put("total", facet.getValueCount());
+                        List<Map<String, Object>> terms = new ArrayList<>();
+                        for (Count count : facet.getValues()) {
+                            if (count.getCount() > 0) {
+                                Map<String, Object> termMap = new HashMap<>();
+                                termMap.put("count", count.getCount());
+                                termMap.put("term", count.getName() == null ? "N/A" : count.getName());
+                                terms.add(termMap);
+                            }
+                        }
+                        facetMap.put("terms", terms);
+                        facetsJson.put(facet.getName(), facetMap);
+                    }
+                    data.put("facets", facetsJson);
                 } else { // non-OK resonse
                     log.error("Received non-200 response: {}", response);
                     data = addMessage(data, MessageLevel.danger, "Non 200 response: " + response.toString());
@@ -313,7 +367,7 @@ public class SolrApp extends AbstractApp {
     }
 
     private Object hightlightIfGiven(SolrDocument doc, Map<String, List<String>> highlights, String field) {
-        if (highlights.containsKey(field)) {
+        if (highlights != null && highlights.containsKey(field)) {
             List<String> result = highlights.get(field);
             if (result.size() == 1) {
                 return result.get(0);

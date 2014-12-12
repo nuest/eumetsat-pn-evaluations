@@ -123,6 +123,8 @@ To help comparability, we try to stick to default values where possible.
 * Search everything, ask for fields `id` and `title`: http://localhost:8983/solr/eumetsat/query?q=*:*&fl=id,title
 * Search with highlighting: http://localhost:8983/solr/eumetsat/query?q=water&fl=description&hl=true&hl.fragsize=0&hl.preserveMulti=true
 * Search grouping by field `satellite_s`: http://localhost:8983/solr/eumetsat/query?q=water&fl=*&group=true&group.field=satellite_s
+* Search with faceting parameters: http://localhost:8983/solr/eumetsat/query?q=water&fl=*&facet=true&facet.field=satellite_s&facet.field=keywords&facet.missing=true&facet.limit=4
+* Search with filtering: http://localhost:8983/solr/eumetsat/query?q=climate&fl=*&facet=true&facet.field=category&fq=+category:cloud%20+category:level1
 
 ## Run in a servlet container
 

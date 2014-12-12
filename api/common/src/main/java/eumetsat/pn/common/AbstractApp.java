@@ -7,7 +7,9 @@ package eumetsat.pn.common;
 
 import com.github.autermann.yaml.Yaml;
 import com.github.autermann.yaml.YamlNode;
+import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.Multimap;
 import freemarker.template.Configuration;
 import java.io.IOException;
 import java.io.InputStream;
@@ -40,7 +42,7 @@ public abstract class AbstractApp {
     protected String productDescriptionRoute = "/product_description";
 
     protected String searchRoute = "/search";
-       
+
     protected static final String PUBLIC_ROUTE = "public";
 
     protected String searchResultsRoute = searchRoute + "/results";
@@ -164,8 +166,8 @@ public abstract class AbstractApp {
         attributes.put("description_endpoint", servletContainer ? "/" + path + productDescriptionRoute : productDescriptionRoute);
         attributes.put("engine", name);
         attributes.put("elem_per_page", ELEM_PER_PAGE);
-        attributes.put("path",  servletContainer ? "/" + path : "");
-        attributes.put("public_path",  servletContainer ? "/" + path + "/" + PUBLIC_ROUTE : "");
+        attributes.put("path", servletContainer ? "/" + path : "");
+        attributes.put("public_path", servletContainer ? "/" + path + "/" + PUBLIC_ROUTE : "");
         return attributes;
     }
 
@@ -317,6 +319,32 @@ public abstract class AbstractApp {
         e.printStackTrace(new PrintWriter(errors));
         String str = errors.toString();
         Spark.halt(401, "Error while returning responses: \n\n\n" + str);
+    }
+
+    /**
+     * Parse a filter string in the form of key1:val1,val2#key2:val3,val4#
+     *
+     * @param filterString
+     * @return
+     */
+    protected static Multimap<String, String> parseFiltersTerms(String filterString) {
+        Multimap<String, String> filterTermsMap = HashMultimap.create();
+        //parse only when there is something to return
+        if (filterString != null && filterString.length() > 0) {
+            // Do not use a regexpr for the moment but should do
+            String[] elems = filterString.split("[\\+, ]");
+            for (String elem : elems) {
+                // ignore empty elements
+                if (elem.length() > 0) {
+                    String[] dummy = elem.split(":");
+                    if (dummy.length < 2) {
+                        throw new RuntimeException("Error filterTermsMap incorrectly formatted. map content = " + elem);
+                    }
+                    filterTermsMap.put(dummy[0], dummy[1]);
+                }
+            }
+        }
+        return filterTermsMap;
     }
 
     @Override

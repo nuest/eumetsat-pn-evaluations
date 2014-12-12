@@ -17,14 +17,12 @@ import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
 import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.node.Node;
@@ -100,37 +98,6 @@ public class ElasticsearchApp extends AbstractApp {
         return data;
     }
 
-    /**
-     * Parse a filter string in the form of key1:val1,val2#key2:val3,val4#
-     *
-     * @param filterString
-     * @return
-     * @throws Exception
-     */
-    private static Multimap<String, String> parseFiltersTerms(String filterString) {
-        Multimap<String, String> filterTermsMap = HashMultimap.create();
-
-        //parse only when there is something to return
-        if (filterString != null && filterString.length() > 0) {
-            // Do not use a regexpr for the moment but should do
-            String[] elems = filterString.split("[\\+, ]");
-
-            for (String elem : elems) {
-                // ignore empty elements
-                if (elem.length() > 0) {
-                    String[] dummy = elem.split(":");
-                    if (dummy.length < 2) {
-                        throw new RuntimeException("Error filterTermsMap incorrectly formatted. map content = " + elem);
-                    }
-
-                    filterTermsMap.put(dummy[0], dummy[1]);
-                }
-            }
-        }
-
-        return filterTermsMap;
-    }
-
     @Override
     protected Map<String, Object> search(String searchTerms, String filterString, int from, int size) {
         Map<String, Object> data = new HashMap<>();
@@ -165,6 +132,7 @@ public class ElasticsearchApp extends AbstractApp {
                         filterTerms += ",{ \"term\" : { \"" + FACETS2HIERACHYNAMES.get(key) + "\":\"" + term + "\"}}";
                     }
 
+                    // hide the facets that are used for filtering
                     hiddenFacets.add(key + ":" + term);
 
                     i++;
@@ -176,6 +144,7 @@ public class ElasticsearchApp extends AbstractApp {
 
         int lengthOfTitle = 300;
         int lengthOfAbstract = 5000;
+        int boostFactorTitle = 10;
 
         String body = "{ "
                 + // pagination information
@@ -193,7 +162,7 @@ public class ElasticsearchApp extends AbstractApp {
                 + "                },"
                 + // add query info
                 "\"query\" : { \"filtered\": { \"query\": "
-                + "              { \"simple_query_string\" : { \"fields\" : [\"identificationInfo.title^10\", \"identificationInfo.abstract\"], "
+                + "              { \"simple_query_string\" : { \"fields\" : [\"identificationInfo.title^" + boostFactorTitle + "\", \"identificationInfo.abstract\"], "
                 + "\"query\" : \"" + searchTerms + "\" } "
                 + "}"
                 + ",\"filter\": {" + filterConstruct + "}"

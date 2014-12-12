@@ -85,41 +85,46 @@
 
         <#include "messages.ftl">
 
-        <div class="row"><#-- row 2 contains hits and so on -->
+        <div class="row"><#-- row 2 contains result summary and meta-information -->
             <div class="col-md-2">&nbsp;</div>
             <div class="col-md-10">
                 <#if total_hits?? && elapsed??>
                     <p class="text-muted">
-                        <small>${total_hits} results (in ${elapsed} milliseconds)</small>
+                        <small>${total_hits} results (in ${elapsed} milliseconds) <#if tohide??> | Active filters: ${tohide?join(", ")?replace(":", ": ")}</#if></small>
                     </p>
                 </#if>
             </div>
         </div>
 
         <div class="row"><#-- row 3 with the results -->
-            <div class="col-md-2">
-                <ul id="sidebar" class="nav nav-stacked affix">
-                    <#if facets??>
+
+            <#-- facet column -->
+            <#if facets??>
+                <div class="col-md-2">
+                    <ul id="sidebar" class="nav nav-stacked affix">
                         <#list facets?keys as facet>
                            <#--<a href="#sec0">${facet?cap_first}<span class="badge pull-right">${facets[facet].total}</span></a>-->
-                           <li style="margin-top: 1em;">
-                                <h5>${facet?cap_first}</h5>
+                           <li style="margin-top: 0.3em;">
+                                <h6>${facet?cap_first}</h6>
                                 <ul class="nav">
                                     <#list facets[facet].terms as aterm>
                                        <#if ! tohide?seq_contains("${facet}:${aterm.term}")>
-                                         <li><small><a class="facetref" data-filter="${facet?replace(" ","")}:${aterm.term}" href="/search/results?search-terms=${search_terms}&from=0&size=10&filter-terms=${facet}:${aterm.term}">${aterm.term?lower_case}<span class="badge pull-right">${aterm.count}</span></small></a></li>
+                                            <li><small>
+                                            <a class="facetref" data-filter="${facet?replace(" ","")}:${aterm.term}" href="${search_endpoint}?search-terms=${search_terms}&from=0&size=10&filter-terms=${facet}:${aterm.term}">${aterm.term?lower_case}<span class="badge pull-right">${aterm.count}</span>
+                                            </a></small></li>
                                        </#if>
                                     </#list>
                                 </ul>
                             </li>
                         </#list>
-                    </#if>
-                </ul>
-            </div>
+                    </ul>
+                </div>
+            </#if>
 
+            <#-- result column -->
             <div class="col-md-10" id="resultlist">
                 <#if hits??>
-                    <ul>
+                    <ul class="list-unstyled">
                     <#list hits as hit>
                         <li>
                             <#if hit.thumbnail?? && hit.thumbnail != "">
