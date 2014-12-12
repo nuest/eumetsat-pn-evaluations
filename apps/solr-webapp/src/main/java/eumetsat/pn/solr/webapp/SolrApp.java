@@ -11,6 +11,7 @@ import com.google.common.base.Joiner;
 import eumetsat.pn.common.AbstractApp;
 import com.google.common.base.Stopwatch;
 import eumetsat.pn.common.ISO2JSON;
+import eumetsat.pn.common.util.SimpleRestClient;
 import eumetsat.pn.solr.SolrFeeder;
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,9 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
 import org.apache.solr.client.solrj.SolrQuery;
-import org.apache.solr.client.solrj.SolrServer;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.impl.HttpSolrServer;
 import org.apache.solr.client.solrj.response.QueryResponse;
@@ -228,12 +227,12 @@ public class SolrApp extends AbstractApp {
          }
          */
         if (conf.get("feedOnStart").booleanValue()) {
-            try {
-                SolrFeeder feeder = new SolrFeeder();
-                feeder.transformAndIndex();
-            } catch (IOException e) {
-                log.error("Error feeding to ES", e);
-            }
+            SolrFeeder feeder = new SolrFeeder();
+            feeder.transformAndIndex();
+        }
+
+        if (conf.get("feedIfEmpty").booleanValue()) {
+            feedIfEmpty();
         }
 
         // ISSUE 1: the embedded Solr server does not expose an HTTP interface
@@ -241,6 +240,25 @@ public class SolrApp extends AbstractApp {
         // ISSUE 2: Version conflict between Jetty of Sparkjava and Jetty of Solr
         SolrApp app = new SolrApp();
         app.run();
+    }
+
+    private static void feedIfEmpty() {
+        SimpleRestClient client = new SimpleRestClient();
+
+        try {
+            URL url = new URL("http://localhost:8983/solr/eumetsat/get?id=EO:EUM:DAT:INFO:LFDI");
+
+            SimpleRestClient.WebResponse response = client.doGetRequest(url, new HashMap<String, String>(), new HashMap<String, String>(),
+                    null, true);
+            if (response.body.contains("\"doc\":null")) { //response.status == 404) {
+                SolrFeeder feeder = new SolrFeeder();
+                feeder.transformAndIndex();
+            } else {
+                log.info("Not feeding, found {}", url);
+            }
+        } catch (Exception e) {
+            log.error("Could not feed empty endpoint", e);
+        }
     }
 
     @Override

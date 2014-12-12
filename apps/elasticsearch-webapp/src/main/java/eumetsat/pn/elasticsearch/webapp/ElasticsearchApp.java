@@ -147,9 +147,6 @@ public class ElasticsearchApp extends AbstractApp {
             return data;
         }
 
-        HashMap<String, String> headers = new HashMap<>();
-        HashMap<String, String> params = new HashMap<>();
-
         List<Map<String, String>> resHits = new ArrayList<>();
         Map<String, String> resHit = null;
 
@@ -207,7 +204,7 @@ public class ElasticsearchApp extends AbstractApp {
         //measure elapsed time
         Stopwatch stopwatch = Stopwatch.createStarted();
 
-        WebResponse response = rClient.doGetRequest(url, headers, params,
+        WebResponse response = rClient.doGetRequest(url, new HashMap<String, String>(), new HashMap<String, String>(),
                 body, log.isDebugEnabled());
 
         if (response == null) {
@@ -297,26 +294,40 @@ public class ElasticsearchApp extends AbstractApp {
     }
 
     public static void main(String[] args) {
-//        startAndFeedEmbedded();
+//        startEmbedded();
+        feedIfEmpty();
 
         ElasticsearchApp app = new ElasticsearchApp();
         app.run();
     }
 
-    private static void startAndFeedEmbedded() {
+    private static void startEmbedded() {
         log.info("Starting embedded Elasticsearch...");
         // http://blog.trifork.com/2012/09/13/elasticsearch-beyond-big-data-running-elasticsearch-embedded/
         Settings settings = ImmutableSettings.settingsBuilder().loadFromClasspath("elasticsearch.yml").build();
         Node node = NodeBuilder.nodeBuilder().settings(settings).build();
         node.start();
         log.info("Embedded Elasticsearch started.");
+    }
+
+    private static void feedIfEmpty() {
+        SimpleRestClient client = new SimpleRestClient();
 
         try {
-            ElasticsearchFeeder feeder = new ElasticsearchFeeder();
-            feeder.transformAndIndex();
-        } catch (IOException e) {
-            log.error("Error feeding to ES", e);
+            URL url = new URL("http://localhost:9200/eumetsat-catalogue/product/EO:EUM:DAT:INFO:LFDI");
+
+            WebResponse response = client.doGetRequest(url, new HashMap<String, String>(), new HashMap<String, String>(),
+                    null, true);
+            if (response.status == 404) {
+                ElasticsearchFeeder feeder = new ElasticsearchFeeder();
+                feeder.transformAndIndex();
+            } else {
+                log.info("Not feeding, found {}", url);
+            }
+        } catch (Exception e) {
+            log.error("Could not feed empty endpoint", e);
         }
+
     }
 
     @Override

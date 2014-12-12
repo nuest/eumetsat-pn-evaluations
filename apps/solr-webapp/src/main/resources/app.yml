@@ -12,6 +12,7 @@ solr:
         # must match webapp name in servlet container:
         path: solr
     feedOnStart: false
+    feedIfEmpty: true
     #embedded:
     #    xml: solr.xml
     #    home: /

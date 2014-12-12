@@ -20,6 +20,7 @@ elasticsearch(.bat) -Des.config=/<path-to-local-repo>/apps/elasticsearch-webapp/
 Example (to make this work in Windows PowerShell the parameter is wrapped: "-D..."):
 
 ```
+cd /<path-to-elasticsearch>/bin/
 .\elasticsearch.bat "-Des.config=C:\Users\danu\Documents\2014_EUMETSAT\workspace\eumetsat-pn-evaluations\apps\elasticsearch-webapp\src\main\resources\elasticsearch.yml"
 ```
 
@@ -37,6 +38,7 @@ etc/new_index_mapping.sh
   * This class extracts info from XML records with XPath and create a JSON stored in a file for each record. Then all the JSON files are indexed in the Elasticsearch database.
   * The configuration file is ``api/elasticsearch-api/src/main/resources/feederconfig.yml``
   * An example JSON record is described here https://gist.github.com/gaubert/e26eb189f7e42317fbb1
+* The feeder is also executed if the endpoint is not fed yet when starting the app (see below).
 
 ### 3) Search web app
 
@@ -45,6 +47,7 @@ The web app is based a on a tiny web framework called [Spark](http://www.sparkja
 Elastic Search is accessed using the REST interface with a REST client.
 
 * Run ``eumetsat.pn.elasticsearch.webapp.ElasticsearchApp.main()`` in the module ``apps/elasticsearch-webapp``
+  * The main method contains an instance of the feeder to feed if the endpoint does not deliver a response for a test document
 * Point your browser to http://localhost:4567/
 * The configuration file is ``apps/elasticsearch-webapp/src/main/resources/app.yml``
 
@@ -76,6 +79,7 @@ java -Dsolr.solr.home=<path-to-workspace>/eumetsat-pn-evaluations/apps/solr-weba
 Example (to make this work in Windows PowerShell the parameter is wrapped: "-D..."):
 
 ```
+cd /<path-to-solr>/example/
 java "-Dsolr.solr.home=C:\Users\danu\Documents\2014_EUMETSAT\workspace\eumetsat-pn-evaluations\apps\solr-webapp\src\main\resources\" -jar start.jar
 ```
 
@@ -97,13 +101,13 @@ To help comparability, we try to stick to default values where possible.
 
 ### 2) Index metadata records
 
-* Run ``..``
-
-
+* Run ``eumetsat.pn.solr.SolrFeeder.main()`` in the module ``api/solr-api`` manually
+* The feeder is also executed if the endpoint is not fed yet when starting the app (see below).
 
 ### 3) Search web app
 
 * Run ``eumetsat.pn.solr.webapp.SolrApp.main()`` in the module ``apps/solr-webapp``
+  * The main method contains an instance of the feeder to feed if the endpoint does not deliver a response for a test document
 * Point your browser to http://localhost:5678/
 * The configuration file is ``apps/solr-webapp/src/main/resources/app.yml``
 
@@ -114,7 +118,8 @@ To help comparability, we try to stick to default values where possible.
 
 ### 4) Solr request examples
 
-...
+* Get by id: `http://localhost:8983/solr/eumetsat/get?id=EO:EUM:DAT:INFO:LFDI`
+* Search everything, ask for fields `id` and `title`: `http://localhost:8983/solr/eumetsat/query?q=*:*&fl=id,title`
 
 ## Run in a servlet container
 
