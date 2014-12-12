@@ -35,6 +35,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Document;
 import org.w3c.dom.NodeList;
+import org.w3c.dom.ls.DOMImplementationLS;
+import org.w3c.dom.ls.LSSerializer;
 import org.xml.sax.SAXException;
 
 /**
@@ -364,6 +366,12 @@ public abstract class ISO2JSON {
 
         latlonMap.put("coordinates", envelope);
         jsonObject.put("location", latlonMap);
+
+        DOMImplementationLS domImplementation = (DOMImplementationLS) xmlDocument.getImplementation();
+        LSSerializer lsSerializer = domImplementation.createLSSerializer();
+        String xmlString = lsSerializer.writeToString(xmlDocument);
+
+        jsonObject.put("xmldoc", xmlString);
 
         return jsonObject;
     }

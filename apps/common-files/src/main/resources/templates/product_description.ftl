@@ -64,8 +64,18 @@
                     </#if>
 
                     <#if thumbnail?? && thumbnail != "">
-                        <img src="${thumbnail}" alt="Thumbnail for ${id}"/>
+                        <img src="${thumbnail}" alt="Thumbnail for ${id}" class="detailimage" />
                     </#if>
+
+                    <#if xmldoc?? && xmldoc != "">
+                        <div style="clear: both;">
+                            <p><button type="button" class="btn btn-info" data-toggle="collapse" data-target="#xmldoc">Show XML</button></p>
+                            <div id="xmldoc" class="collapse">
+                                <textarea class="rawxml" cols="100" rows="12">${xmldoc}</textarea>
+                            </div>
+                        </div>
+                    </#if>
+
                 </div>
             </div><#-- row 1 -->
         </div>

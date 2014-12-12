@@ -159,6 +159,7 @@
 
    <!-- danu added: -->
    <field name="boundingbox" type="bbox" indexed="true" stored="true"/>
+   <field name="xmldoc" type="text_general" indexed="false" stored="true"/>
 
    
    <!-- Main body of document extracted by SolrCell.

@@ -8,7 +8,6 @@ package eumetsat.pn.elasticsearch.webapp;
 import eumetsat.pn.common.AbstractApp;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
-import com.google.common.collect.HashMultimap;
 import com.google.common.collect.Multimap;
 import eumetsat.pn.common.util.SimpleRestClient;
 import eumetsat.pn.common.util.SimpleRestClient.WebResponse;

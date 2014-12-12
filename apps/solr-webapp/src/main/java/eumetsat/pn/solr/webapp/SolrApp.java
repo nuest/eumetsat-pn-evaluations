@@ -118,7 +118,7 @@ public class SolrApp extends AbstractApp {
                 data.put("distribution", Joiner.on(", ").join((Collection<String>) result.get("distribution_ss")));
             }
             if (result.getFieldValue("category") != null) {
-                data.put("category", result.getFieldValue("category"));
+                data.put("category", Joiner.on(", ").join((Collection<String>) result.getFieldValue("category")));
             }
             if (result.getFieldValue("instrument_s") != null) {
                 data.put("instrument", result.getFieldValue("instrument_s"));
@@ -134,6 +134,9 @@ public class SolrApp extends AbstractApp {
             }
             if (result.getFieldValue("societalBenefitArea_ss") != null) {
                 data.put("sba", Joiner.on(", ").join((Collection<String>) result.getFieldValue("societalBenefitArea_ss")));
+            }
+            if (result.getFieldValue("xmldoc") != null) {
+                data.put("xmldoc", result.getFieldValue("xmldoc"));
             }
         } catch (SolrServerException e) {
             log.error("Error querying Solr", e);
@@ -158,7 +161,7 @@ public class SolrApp extends AbstractApp {
             query.setQuery(searchTerms);
             query.setStart(from == -1 ? 0 : from);
             query.setRows(size);
-            query.setFields("*", "score");
+            query.setFields("id", "title", "description", "thumbnail_s", "status_s", "score"); // "exclude" xmldoc
             query.setParam("qt", "edismax"); // probably default already
             
             // boosting
@@ -167,7 +170,7 @@ public class SolrApp extends AbstractApp {
             // set highlight, see also https://cwiki.apache.org/confluence/display/solr/Standard+Highlighter
             query.setHighlight(true).setHighlightSnippets(17).setHighlightFragsize(0); // http://wiki.apache.org/solr/HighlightingParameters
             query.setParam("hl.preserveMulti", "true"); // preserve non-matching keywords
-            query.setParam("hl.fl", "*"); // "*"); // select fields to highlight
+            query.setParam("hl.fl", "id", "title", "description", "keywords"); // "*"); // select fields to highlight
             // override defaults:
             query.setParam("hl.simple.pre", "<em><strong>");
             query.setParam("hl.simple.post", "</strong></em>");

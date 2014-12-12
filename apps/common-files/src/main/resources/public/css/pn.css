@@ -33,3 +33,13 @@ body {
     margin: 0.5em;
     float: right;
 }
+
+.detailimage {
+    margin: 1em;
+}
+
+.rawxml {
+    background-color: #eeeeee;
+    border: 1px solid black;
+    padding: 1em;
+}

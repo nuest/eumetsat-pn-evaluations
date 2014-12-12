@@ -210,6 +210,8 @@ public class SolrFeeder extends ISO2JSON {
         input.addField("email_s", contact.get("email"));
         input.addField("address_s", contact.get("address"));
 
+        input.addField("xmldoc", jsObj.get("xmldoc"));
+
         return input;
     }
 
