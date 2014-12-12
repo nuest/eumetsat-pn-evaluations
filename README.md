@@ -1,6 +1,31 @@
 # EUMETSAT Elasticsearch and Solr Evaluations
 
-Comparison of search frameworks for the EUMETSAT Product Navigator
+Comparison of search frameworks for the EUMETSAT Product Navigator.
+
+This project is based on the following components:
+
+* Bootstrap and jQuery for HTML client (styling, JavaScript)
+* **[Freemarker](http://freemarker.org) template engine** for server-side web page generation
+* Document **search framewors** based on [Lucene](http://lucene.apache.org/).
+  * These search frameworks are started using their shipped web servers.
+  * Configuration files for the frameworks are provided in the directories `/apps/<framework>-webapp/src/main/resources`
+  * Compared frameworks
+    * *Elasticsearch*
+    * *Solr*
+  * **Feeder** components which transform a given set of XML metadata documents (see directory `/metadata`) to JSON and insert the data into the search frameworks based on these documents.
+* **Java libraries**
+  * [Sparkjava](http://sparkjava.com/) rapid prototyping web framework
+  * Configuration and utilities: yaml, Guava
+  * Logging: slfj4, log4j2
+  * [JSON Simple](https://code.google.com/p/json-simple/)
+* [Maven](http://maven.apache.org/) **build framework**
+
+
+**Developers:**
+
+* Guillaume Aubert ([@gaubert](https://github.com/gaubert/), EUMETSAT)
+* Daniel Nüst ([@nuest](https://github.com/nuest/), 52°North)
+
 
 ## Elasticsearch
 
@@ -10,7 +35,7 @@ Quick guide to launch the prototype for [Elasticsearch](http://www.elasticsearch
 
 Download Elasticsearch at http://www.elasticsearch.org/overview/elkdownloads/.
 
-Run Elasticsearch with the configuration provided in this repository:
+Run Elasticsearch with the configuration provided within the webapp module:
 
 ```
 cd /<path-to-elasticsearch>/bin/
@@ -60,8 +85,48 @@ Elastic Search is accessed using the REST interface with a REST client.
 
 ### 4) Elasticsearch request examples
 
-In elastic-experiment/etc there are also multiple curl requests to experiment with Elasticsearch
+* Explore Elasticsearch instance: http://localhost:9200/_search?pretty=true
+* Search for keyword "water": http://localhost:9200/eumetsat-catalogue/_search?pretty&q=water
+* Search for keyword "ocean", retrieve only field `_id` and show extended scoring information: http://localhost:9200/eumetsat-catalogue/_search?pretty&q=ocean&fields=_id&explain=true
+* Retrieve specific record: http://localhost:9200/eumetsat-catalogue/product/EO:EUM:DAT:SPOT:S10NDWISA
+* Further examples
+  * http://www.elasticsearch.org/guide/en/elasticsearch/reference/current/docs.html
 
+#### Highlighted search w/ pagination
+
+```
+#!/bin/bash
+curl -XGET 'http://localhost:9200/_search?pretty=true' -d '{ "from" : 10, "size" : 10, 
+  "highlight" : { 
+                  "pre_tags" : ["<strong>"],
+                  "post_tags" : ["</strong>"],
+                  "fields" : 
+                     { "identificationInfo.title": {"fragment_size" : 300, "number_of_fragments" : 1 }, "identificationInfo.abstract": {"fragment_size" : 1000, "number_of_fragments" : 1} } 
+                } ,  
+  "_source" : false,
+  "query" : { 
+              "simple_query_string" : 
+                  { "fields" : ["identificationInfo.title^10", "identificationInfo.abstract"], "query" : "iasi" } 
+            } 
+}
+'
+```
+
+#### Query with score adjustment
+
+```
+POST eumetsat-catalogue/product/_search
+
+{
+  "explain": true,
+  "query" : {
+    "simple_query_string" : {
+        "fields" : ["identificationInfo.title^10", "identificationInfo.abstract"],
+        "query" : "ATOVS METOP"
+    }
+  }
+}
+```
 
 ## Solr
 
