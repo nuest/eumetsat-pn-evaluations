@@ -114,12 +114,14 @@ To help comparability, we try to stick to default values where possible.
 
 #### Features
 
+* Highlighting
 * ...
 
 ### 4) Solr request examples
 
-* Get by id: `http://localhost:8983/solr/eumetsat/get?id=EO:EUM:DAT:INFO:LFDI`
-* Search everything, ask for fields `id` and `title`: `http://localhost:8983/solr/eumetsat/query?q=*:*&fl=id,title`
+* Get by field `id`: http://localhost:8983/solr/eumetsat/get?id=EO:EUM:DAT:INFO:LFDI
+* Search everything, ask for fields `id` and `title`: http://localhost:8983/solr/eumetsat/query?q=*:*&fl=id,title
+* Search with highlighting: http://localhost:8983/solr/eumetsat/query?q=water&fl=description&hl=true&hl.fragsize=0&hl.preserveMulti=true
 
 ## Run in a servlet container
 

@@ -131,6 +131,14 @@ public class SolrApp extends AbstractApp {
             query.setRows(size);
             query.setFields("*", "score");
 
+            // set highlight, see also https://cwiki.apache.org/confluence/display/solr/Standard+Highlighter
+            query.setHighlight(true).setHighlightSnippets(17).setHighlightFragsize(0); //http://wiki.apache.org/solr/HighlightingParameters
+            query.setParam("hl.preserveMulti", "true"); // preserve non-matching keywords
+            query.setParam("hl.fl", "*"); // "*"); // select fields to highlight
+            // override defaults:
+            query.setParam("hl.simple.pre", "<em><strong>");
+            query.setParam("hl.simple.post", "</strong></em>");
+
             log.trace("Solr query: {}", query);
             Stopwatch stopwatch = Stopwatch.createStarted();
             QueryResponse response = solr.query(query);
@@ -145,6 +153,7 @@ public class SolrApp extends AbstractApp {
                 if (response.getStatus() == 0) {
                     List<Map<String, Object>> resHits = new ArrayList<>();
                     SolrDocumentList results = response.getResults();
+                    Map<String, Map<String, List<String>>> highlights = response.getHighlighting();
 
                     data.put("total_hits", results.getNumFound());
                     data.put("max_score", results.getMaxScore());
@@ -154,12 +163,15 @@ public class SolrApp extends AbstractApp {
                     for (SolrDocument result : results) {
                         HashMap<String, Object> resHit = new HashMap<>();
 
-                        resHit.put("id", result.getFieldValue("id"));
+                        String currentId = (String) result.getFieldValue("id");
+                        Map<String, List<String>> currentHighlights = highlights.get(currentId);
+                        resHit.put("id", currentId);
                         resHit.put("score", String.format("%.4g", result.getFieldValue("score")));
 
-                        resHit.put("abstract", result.get("description"));
-                        resHit.put("title", result.get("title"));
-                        resHit.put("keywords", Joiner.on(", ").join((Collection<String>) result.get("keywords")));
+                        resHit.put("abstract", hightlightIfGiven(result, currentHighlights, "description"));
+
+                        resHit.put("title", hightlightIfGiven(result, currentHighlights, "title"));
+                        resHit.put("keywords", Joiner.on(", ").join((Collection<String>) hightlightIfGiven(result, currentHighlights, "keywords")));
                         resHit.put("satellite", result.get("satellite_s"));
                         resHit.put("thumbnail", result.get("thumbnail_s"));
                         resHit.put("status", result.get("status_s"));
@@ -273,6 +285,19 @@ public class SolrApp extends AbstractApp {
         sb.append("SolrApp [solr endpoint = ").append(this.solrServerEndpoint);
         sb.append("]");
         return sb.toString();
+    }
+
+    private Object hightlightIfGiven(SolrDocument doc, Map<String, List<String>> highlights, String field) {
+        if (highlights.containsKey(field)) {
+            List<String> result = highlights.get(field);
+            if (result.size() == 1) {
+                return result.get(0);
+            } else {
+                return (result);
+            }
+        } else {
+            return doc.get(field);
+        }
     }
 
 }

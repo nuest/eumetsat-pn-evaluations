@@ -122,13 +122,14 @@
                     <ul>
                     <#list hits as hit>
                         <li>
+                            <#if hit.thumbnail?? && hit.thumbnail != "">
+                                <img src="${hit.thumbnail}" width="80" alt="Thumbnail for ${hit.id}"/>
+                            </#if>
                             <h5><a href="${description_endpoint}?id=${hit.id}">${hit.title}</a>&nbsp<#if hit.status?? && hit.status != ""><span class="badge">${hit.status}</span></#if></h5>
                             <p class="text-justify">${hit.abstract}
-                                <#if hit.thumbnail?? && hit.thumbnail != "">
-                                    <img src="${hit.thumbnail}" width="80" alt="Thumbnail for ${hit.id}"/>
-                                </#if>
+                                
                             </p>
-                            <p class="text-muted"><small>Score: ${hit.score} | Keywords: ${hit.keywords}</small></p>
+                            <p class="text-muted"><small>Score: ${hit.score} | Keywords: ${hit.keywords} | ID: ${hit.id}</small></p>
                         </li>
                     </#list>
                     </ul>
