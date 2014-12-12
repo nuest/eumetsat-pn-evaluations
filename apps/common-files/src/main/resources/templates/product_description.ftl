@@ -31,6 +31,38 @@
                         <p><strong>Satellite</strong>: ${satellite}</p>
                     </#if>
 
+                    <#if distribution?? && distribution != "">
+                        <p><strong>Distribution</strong>: ${distribution}</p>
+                    </#if>
+
+                    <#if sba?? && sba != "">
+                        <p><strong>SBA</strong>: ${sba}</p>
+                    </#if>
+
+                    <#if category?? && category != "">
+                        <p><strong>Category</strong>: ${category}</p>
+                    </#if>
+
+                    <#if instrument?? && instrument != "">
+                        <p><strong>Instrument</strong>: ${instrument}</p>
+                    </#if>
+
+                    <#if boundingbox?? && boundingbox != "">
+                        <p><strong>Bounding box</strong>: ${boundingbox}</p>
+                    </#if>
+
+                    <#if address?? && address != "">
+                        <p><strong>Address</strong>: ${address}</p>
+                    </#if>
+
+                    <#if email?? && email != "">
+                        <p><strong>E-Mail</strong>: ${email}</p>
+                    </#if>
+
+                    <#if address?? && address != "">
+                        <p><strong>Address</strong>: ${address}</p>
+                    </#if>
+
                     <#if thumbnail?? && thumbnail != "">
                         <img src="${thumbnail}" alt="Thumbnail for ${id}"/>
                     </#if>

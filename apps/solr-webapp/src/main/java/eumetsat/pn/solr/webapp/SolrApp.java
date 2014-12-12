@@ -95,6 +95,7 @@ public class SolrApp extends AbstractApp {
             data.put("id", result.getFieldValue("id"));
             data.put("title", result.getFieldValue("title"));
             data.put("abstract", result.getFieldValue("description"));
+            
             if (result.getFieldValue("thumbnail_s") != null) {
                 data.put("thumbnail", result.getFieldValue("thumbnail_s"));
             }
@@ -104,7 +105,30 @@ public class SolrApp extends AbstractApp {
             if (result.getFieldValue("satellite_s") != null) {
                 data.put("satellite", result.get("satellite_s"));
             }
-            data.put("keywords", Joiner.on(", ").join((Collection<String>) result.get("keywords")));
+            if (result.getFieldValue("keywords") != null) {
+                data.put("keywords", Joiner.on(", ").join((Collection<String>) result.get("keywords")));
+            }
+            if (result.getFieldValue("distribution_ss") != null) {
+                data.put("distribution", Joiner.on(", ").join((Collection<String>) result.get("distribution_ss")));
+            }
+            if (result.getFieldValue("category") != null) {
+                data.put("category", result.getFieldValue("category"));
+            }
+            if (result.getFieldValue("instrument_s") != null) {
+                data.put("instrument", result.getFieldValue("instrument_s"));
+            }
+            if (result.getFieldValue("boundingbox") != null) {
+                data.put("boundingbox", result.getFieldValue("boundingbox"));
+            }
+            if (result.getFieldValue("address_s") != null) {
+                data.put("address", result.getFieldValue("address_s"));
+            }
+            if (result.getFieldValue("email_s") != null) {
+                data.put("email", result.getFieldValue("email_s"));
+            }
+            if (result.getFieldValue("societalBenefitArea_ss") != null) {
+                data.put("sba", Joiner.on(", ").join((Collection<String>) result.getFieldValue("societalBenefitArea_ss")));
+            }
         } catch (SolrServerException e) {
             log.error("Error querying Solr", e);
             errorResponse(e);
@@ -132,7 +156,7 @@ public class SolrApp extends AbstractApp {
             query.setFields("*", "score");
 
             // set highlight, see also https://cwiki.apache.org/confluence/display/solr/Standard+Highlighter
-            query.setHighlight(true).setHighlightSnippets(17).setHighlightFragsize(0); //http://wiki.apache.org/solr/HighlightingParameters
+            query.setHighlight(true).setHighlightSnippets(17).setHighlightFragsize(0); // http://wiki.apache.org/solr/HighlightingParameters
             query.setParam("hl.preserveMulti", "true"); // preserve non-matching keywords
             query.setParam("hl.fl", "*"); // "*"); // select fields to highlight
             // override defaults:
@@ -175,6 +199,7 @@ public class SolrApp extends AbstractApp {
                         resHit.put("satellite", result.get("satellite_s"));
                         resHit.put("thumbnail", result.get("thumbnail_s"));
                         resHit.put("status", result.get("status_s"));
+                        resHit.put("distribution", result.get("distribution_ss"));
 
                         resHits.add(resHit);
                     }
