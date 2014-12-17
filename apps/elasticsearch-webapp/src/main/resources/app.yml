@@ -4,6 +4,11 @@ elasticsearch:
         port: 4567
         searchendpoint:
             url: http://localhost:9200/
+            # these are used for Java client:
+            host: localhost
+            port: 9200
+            index: eumetsat-catalogue
+            type: product
             paths:
                 search: _search
                 productinfo: eumetsat-catalogue/product/

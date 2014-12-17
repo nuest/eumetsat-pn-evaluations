@@ -5,6 +5,7 @@
  */
 package eumetsat.pn.elasticsearch.webapp;
 
+import com.github.autermann.yaml.YamlNode;
 import eumetsat.pn.common.AbstractApp;
 import com.google.common.base.Joiner;
 import com.google.common.base.Stopwatch;
@@ -17,16 +18,32 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import org.elasticsearch.action.search.SearchRequestBuilder;
+import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.transport.InetSocketTransportAddress;
+import org.elasticsearch.common.transport.TransportAddress;
+import org.elasticsearch.index.query.FilterBuilder;
+import org.elasticsearch.index.query.FilterBuilders;
+import org.elasticsearch.index.query.FilteredQueryBuilder;
+import org.elasticsearch.index.query.QueryBuilders;
+import org.elasticsearch.index.query.QueryStringQueryBuilder;
+import org.elasticsearch.index.query.SimpleQueryStringBuilder;
+import org.elasticsearch.index.query.TermFilterBuilder;
 import org.elasticsearch.node.Node;
 import org.elasticsearch.node.NodeBuilder;
+import static org.elasticsearch.rest.RestStatus.OK;
+import org.elasticsearch.search.facet.FacetBuilders;
+import org.elasticsearch.search.facet.terms.TermsFacetBuilder;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
@@ -105,14 +122,12 @@ public class ElasticsearchApp extends AbstractApp {
         data.put("search_terms", searchTerms);
         data.put("filter_terms", filterString);
 
-        URL url;
-        try {
-            url = new URL(searchEndpointUrlString);
-        } catch (MalformedURLException e) {
-            log.error("Search enpoint URL malformed: {}", e.getMessage());
-            addMessage(data, MessageLevel.danger, "Search endpoint URL is malformed: " + e.getMessage());
-            return data;
-        }
+        YamlNode searchEndpoint = config.get("searchendpoint");
+        InetSocketTransportAddress address = new InetSocketTransportAddress(searchEndpoint.get("host").asTextValue(), searchEndpoint.get("port").asIntValue());
+        TransportClient client = new TransportClient().addTransportAddress(address);
+        log.debug("Using client {}", client);
+
+        SearchRequestBuilder requestBuilder = client.prepareSearch(searchEndpoint.get("index").asTextValue()).setTypes(searchEndpoint.get("type").asTextValue());
 
         List<Map<String, String>> resHits = new ArrayList<>();
         Map<String, String> resHit = null;
@@ -120,61 +135,55 @@ public class ElasticsearchApp extends AbstractApp {
         Multimap<String, String> filterTermsMap = parseFiltersTerms(filterString);
         Set<String> hiddenFacets = new HashSet<>(); // to create the list of filters to hide
 
-        String filterConstruct = "";
+        List<FilterBuilder> filters = new ArrayList<>();
+        FilterBuilder mustFilter = null;
         if (filterTermsMap.size() > 0) {
-            int i = 0;
-            String filterTerms = "";
             for (String key : filterTermsMap.keySet()) {
                 for (String term : filterTermsMap.get(key)) {
-                    if (i == 0) {
-                        filterTerms += "{ \"term\" : { \"" + FACETS2HIERACHYNAMES.get(key) + "\":\"" + term + "\"}}";
-                    } else {
-                        filterTerms += ",{ \"term\" : { \"" + FACETS2HIERACHYNAMES.get(key) + "\":\"" + term + "\"}}";
-                    }
-
+                    TermFilterBuilder filter = FilterBuilders.termFilter(FACETS2HIERACHYNAMES.get(key), term);
+                    filters.add(filter);
                     // hide the facets that are used for filtering
                     hiddenFacets.add(key + ":" + term);
-
-                    i++;
                 }
             }
 
-            filterConstruct = " \"bool\" : { \"must\" : [" + filterTerms + "] }";
+            mustFilter = FilterBuilders.boolFilter().must(filters.toArray(new FilterBuilder[filters.size()]));
         }
 
         int lengthOfTitle = 300;
         int lengthOfAbstract = 5000;
         int boostFactorTitle = 10;
 
-        String body = "{ "
-                + // pagination information
-                "\"from\" : " + from + ", \"size\" : " + size + ","
-                + // request highlighted info
-                "\"highlight\" : { \"pre_tags\" : [\"<em><strong>\"], \"post_tags\" : [\"</strong></em>\"], "
-                + "                  \"fields\" : { \"identificationInfo.title\": {\"fragment_size\" : " + lengthOfTitle + ", \"number_of_fragments\" : 1}, "
-                + "                                 \"identificationInfo.abstract\": {\"fragment_size\" : " + lengthOfAbstract + ", \"number_of_fragments\" : 1} } } , "
-                + // request facets to refine search (here the maximum number of facets can be configured)
-                " \"facets\" :   { \"satellites\": { \"terms\" : { \"field\" : \"hierarchyNames.satellite\", \"size\":5 } }, "
-                + "                  \"instruments\": { \"terms\" : { \"field\" : \"hierarchyNames.instrument\", \"size\":5  } }, "
-                + "                  \"categories\": { \"terms\" : { \"field\" : \"hierarchyNames.category\", \"size\": 5 } }, "
-                + "                  \"societal Benefit Area\": { \"terms\" : { \"field\" : \"hierarchyNames.societalBenefitArea\", \"size\":5 } }, "
-                + "                  \"distribution\": { \"terms\" : { \"field\" : \"hierarchyNames.distribution\", \"size\":5 } } "
-                + "                },"
-                + // add query info
-                "\"query\" : { \"filtered\": { \"query\": "
-                + "              { \"simple_query_string\" : { \"fields\" : [\"identificationInfo.title^" + boostFactorTitle + "\", \"identificationInfo.abstract\"], "
-                + "\"query\" : \"" + searchTerms + "\" } "
-                + "}"
-                + ",\"filter\": {" + filterConstruct + "}"
-                + " }}}";
+        requestBuilder.setFrom(from).setSize(size);
+        requestBuilder.addHighlightedField("identificationInfo.title", lengthOfTitle, 1);
+        requestBuilder.addHighlightedField("identificationInfo.abstract", lengthOfAbstract, 1);
+        requestBuilder.setHighlighterPreTags("<em><strong>");
+        requestBuilder.setHighlighterPostTags("</strong></em>");
 
-        log.trace("elastic-search request: {}", body);
+        TermsFacetBuilder satFacet = FacetBuilders.termsFacet("satellites").field("hierarchyNames.satellite").size(5);
+        requestBuilder.addFacet(satFacet);
+        TermsFacetBuilder instFacet = FacetBuilders.termsFacet("instruments").field("hierarchyNames.instrument").size(5);
+        requestBuilder.addFacet(instFacet);
+        TermsFacetBuilder catFacet = FacetBuilders.termsFacet("categories").field("hierarchyNames.category").size(5);
+        requestBuilder.addFacet(catFacet);
+        TermsFacetBuilder sbaFacet = FacetBuilders.termsFacet("societal Benefit Area").field("hierarchyNames.societalBenefitArea").size(5);
+        requestBuilder.addFacet(sbaFacet);
+        TermsFacetBuilder disFacet = FacetBuilders.termsFacet("distribution").field("hierarchyNames.distribution").size(5);
+        requestBuilder.addFacet(disFacet);
+
+        SimpleQueryStringBuilder queryBuilder = QueryBuilders.simpleQueryString(searchTerms);
+        FilteredQueryBuilder filteredQuery = QueryBuilders.filteredQuery(queryBuilder, mustFilter);
+        queryBuilder.field("identificationInfo.title", boostFactorTitle);
+        queryBuilder.field("identificationInfo.abstract", 2);
+        
+        requestBuilder.setQuery(filteredQuery);
+
+        log.debug("Elasticsearch request: {}", requestBuilder.toString());
 
         //measure elapsed time
         Stopwatch stopwatch = Stopwatch.createStarted();
-
-        WebResponse response = rClient.doGetRequest(url, new HashMap<String, String>(), new HashMap<String, String>(),
-                body, log.isDebugEnabled());
+        
+        SearchResponse response = requestBuilder.execute().actionGet();
 
         if (response == null) {
             log.error("Response from {} is null!", this.name);
@@ -183,7 +192,7 @@ public class ElasticsearchApp extends AbstractApp {
         } else {
             log.trace("Got response: {}", response);
 
-            if (response.status == 200) {
+            if (response.status() == OK) {
                 JSONParser parser = new JSONParser();
                 JSONObject jsObj;
                 try {
@@ -196,8 +205,9 @@ public class ElasticsearchApp extends AbstractApp {
 
                 Long hitcount = (Long) ((Map<?, ?>) jsObj.get("hits")).get("total");
                 data.put("total_hits", hitcount);
-                if(hitcount < 1)
+                if (hitcount < 1) {
                     addMessage(data, MessageLevel.info, "No results found!");
+                }
 
                 // compute the pagination information to create the pagination bar
                 Map<String, Object> pagination = computePaginationParams(hitcount.intValue(), from);
