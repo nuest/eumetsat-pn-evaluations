@@ -318,7 +318,7 @@ public abstract class AbstractApp {
 
                 log.info("Done with feeding.");
 
-                response.redirect(searchRoute);
+                response.redirect(servletContainer ? "/" + path : "");
                 return null;
             }
 
