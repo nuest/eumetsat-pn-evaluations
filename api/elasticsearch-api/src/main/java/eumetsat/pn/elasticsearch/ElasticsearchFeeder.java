@@ -44,6 +44,14 @@ public class ElasticsearchFeeder extends ISO2JSON {
         log.info("Finished.");
     }
 
+    public ElasticsearchFeeder() {
+        super();
+    }
+
+    public ElasticsearchFeeder(Path configFile) {
+        super(configFile);
+    }
+
     protected void indexDirContent(Path aSrcDir) {
         log.info("Indexing dir content {}", aSrcDir);
 

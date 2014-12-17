@@ -15,6 +15,7 @@ import eumetsat.pn.elasticsearch.ElasticsearchFeeder;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -195,6 +196,8 @@ public class ElasticsearchApp extends AbstractApp {
 
                 Long hitcount = (Long) ((Map<?, ?>) jsObj.get("hits")).get("total");
                 data.put("total_hits", hitcount);
+                if(hitcount < 1)
+                    addMessage(data, MessageLevel.info, "No results found!");
 
                 // compute the pagination information to create the pagination bar
                 Map<String, Object> pagination = computePaginationParams(hitcount.intValue(), from);
@@ -263,7 +266,7 @@ public class ElasticsearchApp extends AbstractApp {
 
     public static void main(String[] args) {
 //        startEmbedded();
-        feedIfEmpty();
+//        feedIfEmpty();
 
         ElasticsearchApp app = new ElasticsearchApp();
         app.run();
@@ -301,6 +304,12 @@ public class ElasticsearchApp extends AbstractApp {
     @Override
     protected void feed() throws IOException {
         ElasticsearchFeeder feeder = new ElasticsearchFeeder();
+        feeder.transformAndIndex();
+    }
+
+    @Override
+    protected void feed(Path configFile) throws IOException {
+        ElasticsearchFeeder feeder = new ElasticsearchFeeder(configFile);
         feeder.transformAndIndex();
     }
 }

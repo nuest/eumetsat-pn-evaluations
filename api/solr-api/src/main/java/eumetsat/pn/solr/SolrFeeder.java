@@ -38,8 +38,13 @@ public class SolrFeeder extends ISO2JSON {
     public SolrFeeder() {
         super();
     }
+    
+    public SolrFeeder(Path configFile) {
+        super(configFile);
+    }
 
     public SolrFeeder(SolrServer server) {
+        super();
         this.server = server;
     }
 

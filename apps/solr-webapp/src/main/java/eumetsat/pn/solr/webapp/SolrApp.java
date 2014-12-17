@@ -19,6 +19,7 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -140,7 +141,8 @@ public class SolrApp extends AbstractApp {
             }
         } catch (SolrServerException e) {
             log.error("Error querying Solr", e);
-            errorResponse(e);
+            addMessage(data, MessageLevel.danger, "Error during search: " + e.getMessage());
+//            errorResponse(e);
         }
         return data;
     }
@@ -152,8 +154,7 @@ public class SolrApp extends AbstractApp {
         data.put("search_terms", searchTerms == null ? "*:*" : searchTerms);
         data.put("filter_terms", filterString == null ? "" : filterString);
 
-        HashMap<String, String> headers = new HashMap<>();
-        HashMap<String, String> params = new HashMap<>();
+        Stopwatch stopwatch = Stopwatch.createStarted();
 
         try {
             SolrQuery query = new SolrQuery();
@@ -163,7 +164,7 @@ public class SolrApp extends AbstractApp {
             query.setRows(size);
             query.setFields("id", "title", "description", "thumbnail_s", "status_s", "score"); // "exclude" xmldoc
             query.setParam("qt", "edismax"); // probably default already
-            
+
             // boosting
             query.setParam("qf", "title^10 description status^2 keywords");
 
@@ -197,7 +198,6 @@ public class SolrApp extends AbstractApp {
             data.put("tohide", hiddenFacets);
 
             log.debug("Solr query: {}", query);
-            Stopwatch stopwatch = Stopwatch.createStarted();
             QueryResponse response = solr.query(query);
 
             if (response == null) {
@@ -213,6 +213,10 @@ public class SolrApp extends AbstractApp {
                     Map<String, Map<String, List<String>>> highlights = response.getHighlighting();
 
                     data.put("total_hits", results.getNumFound());
+                    if (results.getNumFound() < 1) {
+                        addMessage(data, MessageLevel.info, "No results found!");
+                    }
+
                     data.put("max_score", results.getMaxScore());
                     Map<String, Object> pagination = computePaginationParams(((Long) (data.get("total_hits"))).intValue(), from);
                     data.put("pagination", pagination);
@@ -268,14 +272,15 @@ public class SolrApp extends AbstractApp {
                 }
             }
 
-            stopwatch.stop();
-
             data.put("elapsed", (double) (stopwatch.elapsed(TimeUnit.MILLISECONDS)) / (double) 1000);
             log.trace("Prepared data for template: {}", data);
         } catch (SolrServerException e) {
             log.error("Error querying Solr", e);
-            errorResponse(e);
+            addMessage(data, MessageLevel.danger, "Error during search: " + e.getMessage());
+//            errorResponse(e);
         }
+
+        stopwatch.stop();
 
         return data;
     }
@@ -358,6 +363,12 @@ public class SolrApp extends AbstractApp {
     @Override
     protected void feed() throws IOException {
         SolrFeeder feeder = new SolrFeeder();
+        feeder.transformAndIndex();
+    }
+
+    @Override
+    protected void feed(Path configFile) throws IOException {
+        SolrFeeder feeder = new SolrFeeder(configFile);
         feeder.transformAndIndex();
     }
 

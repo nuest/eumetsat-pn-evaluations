@@ -1,0 +1,17 @@
+---
+elasticsearch: 
+    feeder:
+        srcdir: C:/Users/danu/Documents/2014_EUMETSAT/workspace/eumetsat-pn-evaluations/metadata
+        tempdirnameprefix: eumetsat-pn-json-results_
+        # set this to false to not send documents to index
+        index: false
+        limit: 10
+solr:
+    feeder:
+        srcdir: C:/Users/danu/Documents/2014_EUMETSAT/workspace/eumetsat-pn-evaluations/metadata
+        tempdirnameprefix: eumetsat-pn-json-results_
+        # set this to false to not send documents to index
+        index: false
+        limit: 10
+    
+...

@@ -90,7 +90,7 @@
             <div class="col-md-10">
                 <#if total_hits?? && elapsed??>
                     <p class="text-muted">
-                        <small>${total_hits} results (in ${elapsed} milliseconds) <#if tohide??> | Active filters: ${tohide?join(", ")?replace(":", ": ")}</#if></small>
+                        <small>${total_hits} results (in ${elapsed} milliseconds) <#if tohide?? && tohide?size &gt; 0> | Active filters: ${tohide?join(", ")?replace(":", ": ")}</#if></small>
                     </p>
                 </#if>
             </div>
@@ -99,7 +99,7 @@
         <div class="row"><#-- row 3 with the results -->
 
             <#-- facet column -->
-            <#if facets??>
+            <#if facets?? && hits?size &gt; 0>
                 <div class="col-md-2">
                     <ul id="sidebar" class="nav nav-stacked affix">
                         <#list facets?keys as facet>
@@ -123,7 +123,7 @@
 
             <#-- result column -->
             <div class="col-md-10" id="resultlist">
-                <#if hits??>
+                <#if hits?? && hits?size &gt; 0>
                     <ul class="list-unstyled">
                     <#list hits as hit>
                         <li>
@@ -142,7 +142,7 @@
             </div>
          </div><#-- row 3 -->
 
-        <#if pagination??>
+        <#if pagination?? && hits?size &gt; 0>
             <div class="row"><#-- row 4: pagination -->
                 <div class="text-center">
                        <ul class="pagination">

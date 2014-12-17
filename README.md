@@ -65,6 +65,14 @@ etc/new_index_mapping.sh
   * An example JSON record is described here https://gist.github.com/gaubert/e26eb189f7e42317fbb1
 * The feeder is also executed if the endpoint is not fed yet when starting the app (see below).
 
+Alternatively, you can start the webapp and use he `/feed` endpoint, see example below.
+
+```
+http://localhost:4567/feed?config=C%3A%5CUsers%5Cdanu%5CDocuments%5C2014_EUMETSAT%5Cworkspace%5Ceumetsat-pn-evaluations%5Capps%5Celasticsearch-webapp%5Csrc%5Ctest%5Cresources%5Cfeederconfig.yml
+```
+
+Make sure to encode the full file path, e.g. using http://meyerweb.com/eric/tools/dencoder/
+
 ### 3) Search web app
 
 The web app is based a on a tiny web framework called [Spark](http://www.sparkjava.com) meant for rapid development. Web pages are built using the simple template engine [Freemarker](http://freemarker.org), Boostrap, and JQuery.
@@ -168,6 +176,12 @@ To help comparability, we try to stick to default values where possible.
 
 * Run ``eumetsat.pn.solr.SolrFeeder.main()`` in the module ``api/solr-api`` manually
 * The feeder is also executed if the endpoint is not fed yet when starting the app (see below).
+
+Alternatively, use the `/feed`-endpoint as described above for Elasticsearch, for example:
+
+```
+http://localhost:5678/feed?config=C%3A%5CUsers%5Cdanu%5CDocuments%5C2014_EUMETSAT%5Cworkspace%5Ceumetsat-pn-evaluations%5Capps%5Celasticsearch-webapp%5Csrc%5Ctest%5Cresources%5Cfeederconfig.yml
+```
 
 ### 3) Search web app
 

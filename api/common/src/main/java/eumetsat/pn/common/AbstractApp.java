@@ -16,6 +16,9 @@ import java.io.InputStream;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.net.MalformedURLException;
+import java.net.URLDecoder;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.Map;
 import org.json.simple.parser.ParseException;
@@ -155,11 +158,9 @@ public abstract class AbstractApp {
      */
     protected abstract Map<String, Object> describeProduct(String id) throws MalformedURLException, ParseException;
 
-    /**
-     *
-     * @throws IOException
-     */
     protected abstract void feed() throws IOException;
+
+    protected abstract void feed(Path configFile) throws IOException;
 
     public Map<String, Object> addGlobalAttributes(Map<String, Object> attributes) {
         attributes.put("search_endpoint", servletContainer ? "/" + path + searchResultsRoute : searchResultsRoute);
@@ -266,18 +267,21 @@ public abstract class AbstractApp {
             public ModelAndView handle(Request request, Response response) {
                 log.trace("Handle product description request: ", request.raw().getRequestURL().toString());
                 String id = request.queryParams("id");
-                ModelAndView mav = null;
                 Map<String, Object> attributes = new HashMap<>();
                 attributes = addGlobalAttributes(attributes);
+
                 try {
                     //get product description info and return them as the input for the template
                     Map<String, Object> data = describeProduct(id);
                     attributes.putAll(data);
-                    mav = new ModelAndView(attributes, "/templates/product_description.ftl");
                 } catch (RuntimeException | MalformedURLException | ParseException e) {
                     log.error("Error during product description page.", e);
-                    errorResponse(e);
+//                    errorResponse(e);
+                    attributes = addMessage(attributes, MessageLevel.danger, "Error: " + response.toString());
                 }
+
+                ModelAndView mav = new ModelAndView(attributes, "/templates/product_description.ftl");
+
                 return mav;
             }
         }, engine);
@@ -298,7 +302,15 @@ public abstract class AbstractApp {
                 log.info("Starting feeding!");
 
                 try {
-                    feed();
+                    String config = request.queryMap("config").value();
+                    if (config != null && !config.isEmpty()) {
+                        config = URLDecoder.decode(config, "UTF-8");
+                        log.debug("Decoded parameter 'config': {}", config);
+                        Path p = Paths.get(config);
+                        feed(p);
+                    } else {
+                        feed();
+                    }
                 } catch (IOException e) {
                     log.error("Error during feeding", e);
                     errorResponse(e);

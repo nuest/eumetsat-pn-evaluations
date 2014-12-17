@@ -47,7 +47,7 @@ public abstract class ISO2JSON {
 
     protected static final Logger log = LoggerFactory.getLogger(ISO2JSON.class);
 
-    protected static final String DEFAULT_CONFIG_FILE = "/feederconfig.yml";
+    protected static final Path DEFAULT_CONFIG_FILE = Paths.get("feederconfig.yml");
 
     protected static final String FILE_IDENTIFIER_PROPERTY = "fileIdentifier";
 
@@ -59,12 +59,23 @@ public abstract class ISO2JSON {
         this(DEFAULT_CONFIG_FILE);
     }
 
-    public ISO2JSON(String configFile) {
-        try (InputStream fis = ISO2JSON.class.getResourceAsStream(configFile)) {
-            YamlNode n = new Yaml().load(fis);
-            this.config = n.get(getConfigBasename()).get("feeder");
-        } catch (IOException e) {
-            log.error("Could not load config from file {}", configFile, e);
+    public ISO2JSON(Path configFile) {
+        log.debug("Initializing from {}", configFile);
+        
+        if (configFile.isAbsolute()) {
+            try (InputStream fis = new FileInputStream(configFile.toFile())) {
+                YamlNode n = new Yaml().load(fis);
+                this.config = n.get(getConfigBasename()).get("feeder");
+            } catch (IOException e) {
+                log.error("Could not load config from absolute file {}", configFile, e);
+            }
+        } else {
+            try (InputStream fis = ISO2JSON.class.getResourceAsStream("/" + configFile.toString())) {
+                YamlNode n = new Yaml().load(fis);
+                this.config = n.get(getConfigBasename()).get("feeder");
+            } catch (IOException e) {
+                log.error("Could not load config from resource file {}", configFile, e);
+            }
         }
 
         log.info("NEW {} based on {}", this.toString(), configFile);
