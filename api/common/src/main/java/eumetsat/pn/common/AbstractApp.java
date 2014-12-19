@@ -207,6 +207,9 @@ public abstract class AbstractApp {
             @Override
             public ModelAndView handle(Request request, Response response) {
                 log.trace("Handle search request...");
+
+                setHeaders(response);
+
                 ModelAndView mav = null;
                 Map<String, Object> attributes = new HashMap<>();
                 addGlobalAttributes(attributes);
@@ -219,6 +222,7 @@ public abstract class AbstractApp {
                     String str = errors.toString();
                     Spark.halt(401, "Error while accessing page search_page. error = " + str);
                 }
+
                 return mav;
             }
         }, engine);
@@ -228,6 +232,9 @@ public abstract class AbstractApp {
             @Override
             public ModelAndView handle(Request request, Response response) {
                 log.trace("Handle search request: {}", request.raw().getRequestURL());
+
+                setHeaders(response);
+
                 ModelAndView mav = null;
                 Map<String, Object> attributes = new HashMap<>();
                 attributes = addGlobalAttributes(attributes);
@@ -269,6 +276,8 @@ public abstract class AbstractApp {
                 String id = request.queryParams("id");
                 Map<String, Object> attributes = new HashMap<>();
                 attributes = addGlobalAttributes(attributes);
+                
+                setHeaders(response);
 
                 try {
                     //get product description info and return them as the input for the template
@@ -331,6 +340,12 @@ public abstract class AbstractApp {
         e.printStackTrace(new PrintWriter(errors));
         String str = errors.toString();
         Spark.halt(401, "Error while returning responses: \n\n\n" + str);
+    }
+
+    protected void setHeaders(Response response) {
+        response.header("Access-Control-Allow-Origin", "*");
+        response.header("Access-Control-Allow-Methods", "POST, GET, OPTIONS");
+        response.header("Access-Control-Allow-Headers", "x-requested-with");
     }
 
     /**

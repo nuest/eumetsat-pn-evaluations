@@ -8,4 +8,5 @@
     </parent>
     <artifactId>common-files</artifactId>
     <packaging>jar</packaging>
+    <name>Common files</name>
 </project>

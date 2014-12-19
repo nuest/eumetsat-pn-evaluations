@@ -5,7 +5,7 @@
 
         <#include "head.ftl">
 
-              <script> 
+              <script type="text/javascript"> 
                     <#-- TODO: move this to pn.js -->
 
                   <!-- code to change url on facets dynamically -->

@@ -59,7 +59,7 @@ public class ElasticsearchFeeder extends ISO2JSON {
 
         YamlNode endpointConfig = this.config.get("endpoint");
 
-        log.info("Endopint configuration: {}", endpointConfig);
+        log.info("Endpoint configuration: {}", endpointConfig);
 
         Settings settings = ImmutableSettings.settingsBuilder().put("cluster.name", endpointConfig.get("cluster.name").asTextValue()).build();
 
