@@ -1,7 +1,7 @@
 ---
 solr: 
     feeder: 
-        srcdir: C:/Users/danu/Documents/2014_EUMETSAT/metadata
+        srcdir: ../../metadata
         tempdirnameprefix: eumetsat-pn-json-results_
         endpoint:
             #cluster.name: 
