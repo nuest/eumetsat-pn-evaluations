@@ -18,30 +18,33 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Collection;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import org.elasticsearch.action.IndicesRequest;
 import org.elasticsearch.action.search.SearchRequestBuilder;
 import org.elasticsearch.action.search.SearchResponse;
+import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
-import org.elasticsearch.common.transport.TransportAddress;
 import org.elasticsearch.index.query.FilterBuilder;
 import org.elasticsearch.index.query.FilterBuilders;
 import org.elasticsearch.index.query.FilteredQueryBuilder;
 import org.elasticsearch.index.query.QueryBuilders;
-import org.elasticsearch.index.query.QueryStringQueryBuilder;
 import org.elasticsearch.index.query.SimpleQueryStringBuilder;
 import org.elasticsearch.index.query.TermFilterBuilder;
 import org.elasticsearch.node.Node;
 import org.elasticsearch.node.NodeBuilder;
 import static org.elasticsearch.rest.RestStatus.OK;
+import org.elasticsearch.search.SearchHit;
+import org.elasticsearch.search.SearchHitField;
+import org.elasticsearch.search.SearchHits;
 import org.elasticsearch.search.facet.FacetBuilders;
 import org.elasticsearch.search.facet.terms.TermsFacetBuilder;
 import org.json.simple.JSONArray;
@@ -61,13 +64,32 @@ public class ElasticsearchApp extends AbstractApp {
     private static final Logger log = LoggerFactory.getLogger(ElasticsearchApp.class);
 
     private final SimpleRestClient rClient = new SimpleRestClient();
+    
+    private Client client;
+    
+    private SearchRequestBuilder requestBuilder;
 
     public ElasticsearchApp() {
         super();
+        
+        init();
     }
 
     public ElasticsearchApp(boolean servletContainer) {
         super(servletContainer);
+        
+        init();
+    }
+    
+    private void init() {
+        YamlNode searchEndpoint = config.get("searchendpoint");
+        Settings settings = ImmutableSettings.settingsBuilder().put("cluster.name", searchEndpoint.get("cluster").asTextValue()).build();
+
+        InetSocketTransportAddress address = new InetSocketTransportAddress(searchEndpoint.get("host").asTextValue(), searchEndpoint.get("port").asIntValue());
+        client = new TransportClient(settings).addTransportAddress(address);
+        requestBuilder = client.prepareSearch(searchEndpoint.get("index").asTextValue()).setTypes(searchEndpoint.get("type").asTextValue());
+
+        log.debug("Using client {}", client);
     }
 
     @Override
@@ -122,16 +144,6 @@ public class ElasticsearchApp extends AbstractApp {
         data.put("search_terms", searchTerms);
         data.put("filter_terms", filterString);
 
-        YamlNode searchEndpoint = config.get("searchendpoint");
-        InetSocketTransportAddress address = new InetSocketTransportAddress(searchEndpoint.get("host").asTextValue(), searchEndpoint.get("port").asIntValue());
-        TransportClient client = new TransportClient().addTransportAddress(address);
-        log.debug("Using client {}", client);
-
-        SearchRequestBuilder requestBuilder = client.prepareSearch(searchEndpoint.get("index").asTextValue()).setTypes(searchEndpoint.get("type").asTextValue());
-
-        List<Map<String, String>> resHits = new ArrayList<>();
-        Map<String, String> resHit = null;
-
         Multimap<String, String> filterTermsMap = parseFiltersTerms(filterString);
         Set<String> hiddenFacets = new HashSet<>(); // to create the list of filters to hide
 
@@ -175,15 +187,18 @@ public class ElasticsearchApp extends AbstractApp {
         FilteredQueryBuilder filteredQuery = QueryBuilders.filteredQuery(queryBuilder, mustFilter);
         queryBuilder.field("identificationInfo.title", boostFactorTitle);
         queryBuilder.field("identificationInfo.abstract", 2);
-        
+
         requestBuilder.setQuery(filteredQuery);
 
         log.debug("Elasticsearch request: {}", requestBuilder.toString());
 
         //measure elapsed time
         Stopwatch stopwatch = Stopwatch.createStarted();
-        
+
         SearchResponse response = requestBuilder.execute().actionGet();
+
+        List<Map<String, String>> resHits = new ArrayList<>();
+        Map<String, String> resHit = null;
 
         if (response == null) {
             log.error("Response from {} is null!", this.name);
@@ -193,17 +208,9 @@ public class ElasticsearchApp extends AbstractApp {
             log.trace("Got response: {}", response);
 
             if (response.status() == OK) {
-                JSONParser parser = new JSONParser();
-                JSONObject jsObj;
-                try {
-                    jsObj = (JSONObject) parser.parse(response.body);
-                } catch (ParseException e) {
-                    log.error("Could not parse search server response: {}", e);
-                    addMessage(data, MessageLevel.danger, "Could not parse server response: " + e.getMessage());
-                    return data;
-                }
+                SearchHits searchHits = response.getHits();
 
-                Long hitcount = (Long) ((Map<?, ?>) jsObj.get("hits")).get("total");
+                Long hitcount = searchHits.getTotalHits();
                 data.put("total_hits", hitcount);
                 if (hitcount < 1) {
                     addMessage(data, MessageLevel.info, "No results found!");
@@ -213,47 +220,50 @@ public class ElasticsearchApp extends AbstractApp {
                 Map<String, Object> pagination = computePaginationParams(hitcount.intValue(), from);
                 data.put("pagination", pagination);
 
-                @SuppressWarnings("unchecked")
-                List<Map<String, Object>> hits = (List<Map<String, Object>>) ((Map<?, ?>) jsObj.get("hits")).get("hits");
+                SearchHit[] hits = searchHits.getHits();
 
                 //to get the highlight
                 Map<?, ?> highlight = null;
-                for (Map<String, Object> hit : hits) {
+                for (SearchHit hit : hits) {
+                    log.debug("Adding hit: {}", hit);
                     resHit = new HashMap<>();
 
-                    resHit.put("id", (String) hit.get("_id"));
-                    resHit.put("score", String.format("%.4g%n", ((Double) hit.get("_score"))));
+                    Map<String, SearchHitField> fields = hit.getFields();
+
+                    resHit.put("id", hit.getId());
+                    resHit.put("score", String.format("%.4g%n", hit.getScore()));
 
                     // can have or not title or abstract
                     // strategy. If it doesn't have an abstract or a title match then take it from the _source
-                    highlight = (Map<?, ?>) hit.get("highlight");
+//                    highlight = (Map<?, ?>) hit.get("highlight");
+//                    
+//                    Map<String, Object> hitSource = hit.getSource();
+//                    System.out.println(Arrays.toString(hitSource.entrySet().toArray()));
+//                    
+//                    if (highlight.containsKey("identificationInfo.title")) {
+//                        resHit.put("title", (String) ((JSONArray) highlight.get("identificationInfo.title")).get(0));
+//                    } else {
+//                        resHit.put("title", ((String) (((Map<?, ?>) (((Map<?, ?>) hit.get("_source")).get("identificationInfo"))).get("title"))));
+//                    }
+//
+//                    if (highlight.containsKey("identificationInfo.abstract")) {
+//                        resHit.put("abstract", (String) ((JSONArray) highlight.get("identificationInfo.abstract")).get(0));
+//                    } else {
+//                        resHit.put("abstract", ((String) (((Map<?, ?>) (((Map<?, ?>) hit.get("_source")).get("identificationInfo"))).get("abstract"))));
+//                    }
+                    SearchHitField idInfoField = fields.get("identificationInfo");
 
-                    if (highlight.containsKey("identificationInfo.title")) {
-                        resHit.put("title", (String) ((JSONArray) highlight.get("identificationInfo.title")).get(0));
-                    } else {
-                        resHit.put("title", ((String) (((Map<?, ?>) (((Map<?, ?>) hit.get("_source")).get("identificationInfo"))).get("title"))));
-                    }
-
-                    if (highlight.containsKey("identificationInfo.abstract")) {
-                        resHit.put("abstract", (String) ((JSONArray) highlight.get("identificationInfo.abstract")).get(0));
-                    } else {
-                        resHit.put("abstract", ((String) (((Map<?, ?>) (((Map<?, ?>) hit.get("_source")).get("identificationInfo"))).get("abstract"))));
-                    }
-
-                    JSONObject info = (JSONObject) ((JSONObject) hit.get("_source")).get("identificationInfo");
-                    JSONArray keywords = (JSONArray) info.get("keywords");
-                    resHit.put("keywords", Joiner.on(", ").join(keywords.iterator()));
-
-                    resHit.put("thumbnail", info.get("thumbnail").toString());
-                    resHit.put("status", info.get("status").toString());
-
+//                    JSONArray keywords = (JSONArray) info.get("keywords");
+//                    resHit.put("keywords", Joiner.on(", ").join(keywords.iterator()));
+//
+//                    resHit.put("thumbnail", info.get("thumbnail").toString());
+//                    resHit.put("status", info.get("status").toString());
                     resHits.add(resHit);
                 }
 
                 data.put("hits", resHits);
 
-                data.put("facets", jsObj.get("facets"));
-
+//                data.put("facets", jsObj.get("facets"));
                 data.put("tohide", hiddenFacets);
 
             } else { // non-200 resonse
@@ -322,4 +332,15 @@ public class ElasticsearchApp extends AbstractApp {
         ElasticsearchFeeder feeder = new ElasticsearchFeeder(configFile);
         feeder.transformAndIndex();
     }
+
+    @Override
+    protected void finalize() throws Throwable {
+        log.info("Shutting down...");
+        super.finalize();
+        this.client.threadPool().shutdown();
+        this.client.close();
+        log.info("... done with shutdown!");
+    }
+    
+    
 }

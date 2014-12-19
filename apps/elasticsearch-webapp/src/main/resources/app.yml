@@ -6,9 +6,11 @@ elasticsearch:
             url: http://localhost:9200/
             # these are used for Java client:
             host: localhost
-            port: 9200
+            # 9200 = HTTP, 9300 = node to node / Java client
+            port: 9300
             index: eumetsat-catalogue
             type: product
+            cluster: eumetsat-cluster
             paths:
                 search: _search
                 productinfo: eumetsat-catalogue/product/
