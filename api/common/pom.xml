@@ -7,7 +7,7 @@
     </parent>
     <artifactId>common-api</artifactId>
     <packaging>jar</packaging>
-    <name>common</name>	
+    <name>Common API</name>	
     <description>This module contains common api files.</description>
     
     <dependencies>

@@ -7,7 +7,7 @@
     </parent>
     <artifactId>solr-api</artifactId>
     <packaging>jar</packaging>
-    <name>common</name>	
+    <name>Solr API</name>	
     <description>This module contains api files for Apache Solr.</description>
     
     <dependencies>

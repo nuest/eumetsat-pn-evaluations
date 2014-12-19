@@ -67,7 +67,7 @@
             <dependency>
                 <groupId>org.elasticsearch</groupId>
                 <artifactId>elasticsearch</artifactId>
-                <version>1.4.0</version>
+                <version>1.4.2</version>
             </dependency>
             
             <dependency>
@@ -111,7 +111,7 @@
             <dependency>
                 <groupId>com.github.autermann</groupId>
                 <artifactId>yaml</artifactId>
-                <version>1.0.0</version>
+                <version>1.0.1</version>
             </dependency>
             
             <dependency>
