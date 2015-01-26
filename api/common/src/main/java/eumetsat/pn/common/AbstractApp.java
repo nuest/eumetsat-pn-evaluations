@@ -43,6 +43,8 @@ public abstract class AbstractApp {
     protected static final String DEFAULT_CONFIG_FILE = "/app.yml";
 
     protected String productDescriptionRoute = "/product_description";
+    
+    protected String autocompleteRoute = "/autocomplete";
 
     protected String searchRoute = "/search";
 
@@ -72,6 +74,7 @@ public abstract class AbstractApp {
     private String MESSAGES_ENTRY = "user_messages";
     private final boolean servletContainer;
     private final String path;
+    private final String autocompleteEndpointUrlString;
 
     public AbstractApp() {
         this(false, DEFAULT_CONFIG_FILE);
@@ -106,6 +109,8 @@ public abstract class AbstractApp {
         this.name = this.config.get("name").asTextValue();
         this.port = this.config.get("port").asIntValue(4567);
         this.path = this.config.get("path").asTextValue("");
+        
+        this.autocompleteEndpointUrlString = config.get("autocomplete").asTextValue();
 
         log.info("NEW app '{}' based on {}: \n\t\t{}", this.name, configFile, this.toString());
     }
@@ -165,6 +170,7 @@ public abstract class AbstractApp {
     public Map<String, Object> addGlobalAttributes(Map<String, Object> attributes) {
         attributes.put("search_endpoint", servletContainer ? "/" + path + searchResultsRoute : searchResultsRoute);
         attributes.put("description_endpoint", servletContainer ? "/" + path + productDescriptionRoute : productDescriptionRoute);
+        attributes.put("autocomplete_endpoint", servletContainer ? "/" + path + autocompleteRoute : autocompleteRoute);
         attributes.put("engine", name);
         attributes.put("elem_per_page", ELEM_PER_PAGE);
         attributes.put("path", servletContainer ? "/" + path : "");
@@ -328,6 +334,18 @@ public abstract class AbstractApp {
                 log.info("Done with feeding.");
 
                 response.redirect(servletContainer ? "/" + path : "");
+                return null;
+            }
+
+        });
+        
+        Spark.get(autocompleteRoute, new Route() {
+            @Override
+            public Object handle(Request request, Response response) {
+                log.debug("Autocomplete!");
+
+                // TODO this is not sufficient, the body has to be passed on as well!
+                response.redirect(autocompleteEndpointUrlString);
                 return null;
             }
 

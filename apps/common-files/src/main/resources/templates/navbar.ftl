@@ -38,7 +38,7 @@ $(function() {
             };
 
             $.ajax({
-                url: "http://localhost:9200/eumetsat-catalogue/product/_search",
+                url: "${autocomplete_endpoint}",
                 type: "POST",
                 dataType: "JSON",
                 data: JSON.stringify(postData),
