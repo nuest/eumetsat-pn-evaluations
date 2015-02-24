@@ -7,6 +7,7 @@ elasticsearch:
             paths:
                 search: _search
                 productinfo: eumetsat-catalogue/product/
+        autocompleteendpoint: http://localhost:9200/eumetsat-catalogue/product/_search
         name: Elasticsearch
         # must match webapp name in servlet container:
         path: elasticsearch
