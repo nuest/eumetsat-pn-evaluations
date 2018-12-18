@@ -27,7 +27,6 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <log4j2.version>2.1</log4j2.version>
         <slf4j.version>1.7.7</slf4j.version>
-        <solr.version>4.10.2</solr.version>
     </properties>
     
     <modules>
@@ -117,12 +116,13 @@
             <dependency>
                 <groupId>org.apache.solr</groupId>
                 <artifactId>solr-solrj</artifactId>
-                <version>${solr.version}</version>
+		<version>[7.1.0,)</version>
+	    </dependency>
             </dependency>
             <dependency>
                 <groupId>org.apache.solr</groupId>
                 <artifactId>solr-core</artifactId>
-                <version>${solr.version}</version>
+                <version>[7.1.0,)</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
